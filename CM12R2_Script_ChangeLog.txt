@@ -1,0 +1,34 @@
+#Original Script created by David O'Brien in June 2013.
+#http://www.david-obrien.net/2013/06/huge-powershell-inventory-script-for-configmgr-2012/
+#http://www.david-obrien.net/2014/01/update-inventory-script-makes-configmgr-life-easier/
+#Now maintained by Carl Webster
+#webster@carlwebster.com
+#@carlwebster on Twitter
+#http://www.CarlWebster.com
+
+#Version 2.32 13-Feb-2017
+#	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
+
+#Version 2.31 7-Nov-2016
+#	Added Chinese language support
+#	Fixed typos in help text
+
+#Version 2.3 11-Jul-2016 (first release by Carl Webster
+#	Added support for Word 2016
+#	Added -Dev parameter to create a text file of script errors
+#	Added more script information to the console output when script starts
+#	Added -ScriptInfo (SI) parameter to create a text file of script information
+#	Added specifying an optional output folder
+#	Added the option to email the output file
+#	Changed from using arrays to populating data in tables to strings
+#	Cleaned up some issues in the help text
+#	Color variables needed to be [long] and not [int] except for $wdColorBlack which is 0
+#	Fixed many $Null comparison issues
+#	Fixed numerous issues discovered with the latest update to PowerShell V5
+#	Fixed output to HTML with -AddDateTime parameter
+#	Fixed saving the HTML file when using AddDateTime, now only one file is created not two
+#	Fixed several incorrect variable names that kept PDFs from saving in Windows 10 and Office 2013
+#	Fixed several spacing and typo errors
+#	Fixed several typos
+#	Removed the 10 second pauses waiting for Word to save and close
+
