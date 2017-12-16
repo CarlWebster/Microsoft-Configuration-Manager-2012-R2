@@ -24,14 +24,58 @@
 		Spanish
 		Swedish
 
+.PARAMETER CompanyAddress
+	Company Address to use for the Cover Page, if the Cover Page has the Address field.
+	
+	The following Cover Pages have an Address field:
+		Banded (Word 2013/2016)
+		Contrast (Word 2010)
+		Exposure (Word 2010)
+		Filigree (Word 2013/2016)
+		Ion (Dark) (Word 2013/2016)
+		Retrospect (Word 2013/2016)
+		Semaphore (Word 2013/2016)
+		Tiles (Word 2010)
+		ViewMaster (Word 2013/2016)
+		
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CA.
+.PARAMETER CompanyEmail
+	Company Email to use for the Cover Page, if the Cover Page has the Email field.  
+	
+	The following Cover Pages have an Email field:
+		Facet (Word 2013/2016)
+	
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CE.
+.PARAMETER CompanyFax
+	Company Fax to use for the Cover Page, if the Cover Page has the Fax field.  
+	
+	The following Cover Pages have a Fax field:
+		Contrast (Word 2010)
+		Exposure (Word 2010)
+	
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CF.
 .PARAMETER CompanyName
 	Company Name to use for the Cover Page.  
-	Default value is contained in HKCU:\Software\Microsoft\Office\Common\UserInfo\CompanyName or
-	HKCU:\Software\Microsoft\Office\Common\UserInfo\Company, whichever is populated on the 
-	computer running the script.
+	Default value is contained in 
+	HKCU:\Software\Microsoft\Office\Common\UserInfo\CompanyName or
+	HKCU:\Software\Microsoft\Office\Common\UserInfo\Company, whichever is populated 
+	on the computer running the script.
 	This parameter has an alias of CN.
-	If either registry key does not exist and this parameter is not specified, the report will
-	not contain a Company Name on the cover page.
+	If either registry key does not exist and this parameter is not specified, the report 
+	will not contain a Company Name on the cover page.
+	This parameter is only valid with the MSWORD and PDF output parameters.
+.PARAMETER CompanyPhone
+	Company Phone to use for the Cover Page if the Cover Page has the Phone field.  
+	
+	The following Cover Pages have a Phone field:
+		Contrast (Word 2010)
+		Exposure (Word 2010)
+	
+	This parameter is only valid with the MSWORD and PDF output parameters.
+	This parameter has an alias of CPh.
 .PARAMETER CoverPage
 	What Microsoft Word Cover Page to use.
 	Only Word 2010, 2013 and 2016 are supported.
@@ -41,9 +85,9 @@
 		Alphabet (Word 2010. Works)
 		Annual (Word 2010. Doesn't work well for this report)
 		Austere (Word 2010. Works)
-		Austin (Word 2010/2013/2016. Doesn't work in 2013 or 2016, mostly works in 2010 but 
-						Subtitle/Subject & Author fields need to be moved 
-						after title box is moved up)
+		Austin (Word 2010/2013/2016. Doesn't work in 2013 or 2016, mostly 
+		works in 2010 but Subtitle/Subject & Author fields need to be moved 
+		after title box is moved up)
 		Banded (Word 2013/2016. Works)
 		Conservative (Word 2010. Works)
 		Contrast (Word 2010. Works)
@@ -53,20 +97,22 @@
 		Filigree (Word 2013/2016. Works)
 		Grid (Word 2010/2013/2016. Works in 2010)
 		Integral (Word 2013/2016. Works)
-		Ion (Dark) (Word 2013/2016. Top date doesn't fit, box needs to be manually resized or font 
-						changed to 8 point)
-		Ion (Light) (Word 2013/2016. Top date doesn't fit, box needs to be manually resized or font 
-						changed to 8 point)
+		Ion (Dark) (Word 2013/2016. Top date doesn't fit; box needs to be 
+		manually resized or font changed to 8 point)
+		Ion (Light) (Word 2013/2016. Top date doesn't fit; box needs to be 
+		manually resized or font changed to 8 point)
 		Mod (Word 2010. Works)
-		Motion (Word 2010/2013/2016. Works if top date is manually changed to 36 point)
+		Motion (Word 2010/2013/2016. Works if top date is manually changed to 
+		36 point)
 		Newsprint (Word 2010. Works but date is not populated)
 		Perspective (Word 2010. Works)
 		Pinstripes (Word 2010. Works)
-		Puzzle (Word 2010. Top date doesn't fit, box needs to be manually resized or font 
-					changed to 14 point)
+		Puzzle (Word 2010. Top date doesn't fit; box needs to be manually 
+		resized or font changed to 14 point)
 		Retrospect (Word 2013/2016. Works)
 		Semaphore (Word 2013/2016. Works)
-		Sideline (Word 2010/2013/2016. Doesn't work in 2013 or 2016, works in 2010)
+		Sideline (Word 2010/2013/2016. Doesn't work in 2013 or 2016, works in 
+		2010)
 		Slice (Dark) (Word 2013/2016. Doesn't work)
 		Slice (Light) (Word 2013/2016. Doesn't work)
 		Stacks (Word 2010. Works)
@@ -75,13 +121,14 @@
 		ViewMaster (Word 2013/2016. Works)
 		Whisp (Word 2013/2016. Works)
 		
-	Default value is Sideline.
+	The default value is Sideline.
 	This parameter has an alias of CP.
 	This parameter is only valid with the MSWORD and PDF output parameters.
 .PARAMETER UserName
-	User name to use for the Cover Page and Footer.
+	Username to use for the Cover Page and Footer.
 	Default value is contained in $env:username
 	This parameter has an alias of UN.
+	This parameter is only valid with the MSWORD and PDF output parameters.
 .PARAMETER PDF
 	SaveAs PDF file instead of DOCX file.
 	This parameter is disabled by default.
@@ -90,47 +137,49 @@
 	SaveAs DOCX file
 	This parameter is set True if no other output format is selected.
 .PARAMETER AddDateTime
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be ReportName_2014-06-01_1800.docx (or .pdf).
+	Adds a date timestamp to the end of the file name.
+	The timestamp is in the format of yyyy-MM-dd_HHmm.
+	June 1, 2018 at 6PM is 2018-06-01_1800.
+	Output filename will be ReportName_2018-06-01_1800.docx (or .pdf).
 	This parameter is disabled by default.
 .PARAMETER Software
-    specifies whether the script should run an inventory of Applications, Packages and OSD related objects.
+    Specifies whether the script should run an inventory of Applications, Packages and 
+	OSD related objects.
 .PARAMETER ListAllInformation
-    specifies whether the script should only output an overview of what is configured (like count of collections) or 
-    a full output with verbose information.
+    Specifies whether the script should only output an overview of what is configured 
+	(like count of collections) or a full output with verbose information.
 .PARAMETER SMSProvider
-    Some information relies on WMI queries that need to be executed against the SMS Provider directly. 
+    Some information relies on WMI queries that need to be executed against the SMS 
+	Provider directly. 
     Please specify as FQDN.
     If not specified, it assumes localhost.
 .PARAMETER Folder
-	specifies the optional output folder to save the output report. 
+	Specifies the optional output folder to save the output report. 
 .PARAMETER SmtpServer
-	specifies the optional email server to send the output report. 
+	Specifies the optional email server to send the output report. 
 .PARAMETER SmtpPort
-	specifies the SMTP port. 
-	Default is 25.
+	Specifies the SMTP port. 
+	The default is 25.
 .PARAMETER UseSSL
-	specifies whether to use SSL for the SmtpServer.
-	Default is False.
+	Specifies whether to use SSL for the SmtpServer.
+	The default is False.
 .PARAMETER From
-	specifies the username for the From email address.
+	Specifies the username for the From email address.
 	If SmtpServer is used, this is a required parameter.
 .PARAMETER To
-	specifies the username for the To email address.
+	Specifies the username for the To email address.
 	If SmtpServer is used, this is a required parameter.
 .PARAMETER Dev
 	Clears errors at the beginning of the script.
 	Outputs all errors to a text file at the end of the script.
 	
 	This is used when the script developer requests more troubleshooting data.
-	Text file is placed in the same folder from where the script is run.
+	The text file is placed in the same folder from where the script is run.
 	
 	This parameter is disabled by default.
 .PARAMETER ScriptInfo
 	Outputs information about the script to a text file.
-	Text file is placed in the same folder from where the script is run.
+	The text file is placed in the same folder from where the script is run.
 	
 	This parameter is disabled by default.
 	This parameter has an alias of SI.
@@ -138,7 +187,8 @@
 	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -PDF
 	
 	Will use all default values and save the document as a PDF file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
+	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl 
+	Webster" or
 	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
 	$env:username = Administrator
 
@@ -147,14 +197,16 @@
 	Administrator for the User Name.
 
 .EXAMPLE
-	PS C:\PSScript .\DocumentCM12R2v22.ps1 -CompanyName "Carl Webster Consulting" -CoverPage "Mod" -UserName "Carl Webster"
+	PS C:\PSScript .\DocumentCM12R2v22.ps1 -CompanyName "Carl Webster Consulting" 
+	-CoverPage "Mod" -UserName "Carl Webster"
 
 	Will use:
 		Carl Webster Consulting for the Company Name.
 		Mod for the Cover Page format.
 		Carl Webster for the User Name.
 .EXAMPLE
-	PS C:\PSScript .\DocumentCM12R2v22.ps1 -CN "Carl Webster Consulting" -CP "Mod" -UN "Carl Webster"
+	PS C:\PSScript .\DocumentCM12R2v22.ps1 -CN "Carl Webster Consulting" -CP "Mod" 
+	-UN "Carl Webster"
 
 	Will use:
 		Carl Webster Consulting for the Company Name (alias CN).
@@ -164,7 +216,8 @@
 	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -AddDateTime
 	
 	Will use all default values.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
+	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl 
+	Webster" or
 	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
 	$env:username = Administrator
 
@@ -172,15 +225,16 @@
 	Sideline for the Cover Page format.
 	Administrator for the User Name.
 
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be Script_Template_2014-06-01_1800.docx
+	Adds a date timestamp to the end of the file name.
+	The timestamp is in the format of yyyy-MM-dd_HHmm.
+	June 1, 2018 at 6PM is 2018-06-01_1800.
+	Output filename will be Script_Template_2018-06-01_1800.docx
 .EXAMPLE
 	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -PDF -AddDateTime
 	
 	Will use all default values and save the document as a PDF file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
+	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl 
+	Webster" or
 	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
 	$env:username = Administrator
 
@@ -188,15 +242,16 @@
 	Sideline for the Cover Page format.
 	Administrator for the User Name.
 
-	Adds a date time stamp to the end of the file name.
-	Time stamp is in the format of yyyy-MM-dd_HHmm.
-	June 1, 2014 at 6PM is 2014-06-01_1800.
-	Output filename will be Script_Template_2014-06-01_1800.PDF
+	Adds a date timestamp to the end of the file name.
+	The timestamp is in the format of yyyy-MM-dd_HHmm.
+	June 1, 2018 at 6PM is 2018-06-01_1800.
+	Output filename will be Script_Template_2018-06-01_1800.PDF
 .EXAMPLE
 	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -Folder \\FileServer\ShareName
 	
 	Will use all default values and save the document as a DOCX file.
-	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl Webster" or
+	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\CompanyName="Carl 
+	Webster" or
 	HKEY_CURRENT_USER\Software\Microsoft\Office\Common\UserInfo\Company="Carl Webster"
 	$env:username = Administrator
 
@@ -205,15 +260,21 @@
 	Administrator for the User Name.
 	Output file will be saved in the path \\FileServer\ShareName
 .EXAMPLE
-	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -SmtpServer mail.domain.tld -From CMAdmin@domain.tld -To ITGroup@domain.tld
+	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -SmtpServer mail.domain.tld 
+	-From CMAdmin@domain.tld -To ITGroup@domain.tld
 
-	Script will use the email server mail.domain.tld, sending from CMAdmin@domain.tld, sending to ITGroup@domain.tld.
-	If the current user's credentials are not valid to send email, the user will be prompted to enter valid credentials.
+	The script will use the email server mail.domain.tld, sending from CMAdmin@domain.tld, 
+	sending to ITGroup@domain.tld.
+	If the current user's credentials are not valid to send email, the user will be prompted 
+	to enter valid credentials.
 .EXAMPLE
-	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -SmtpServer smtp.office365.com -SmtpPort 587 -UseSSL -From Webster@CarlWebster.com -To ITGroup@CarlWebster.com
+	PS C:\PSScript > .\DocumentCM12R2v22.ps1 -SmtpServer smtp.office365.com -SmtpPort 587 
+	-UseSSL -From Webster@CarlWebster.com -To ITGroup@CarlWebster.com
 
-	Script will use the email server smtp.office365.com on port 587 using SSL, sending from webster@carlwebster.com, sending to ITGroup@carlwebster.com.
-	If the current user's credentials are not valid to send email, the user will be prompted to enter valid credentials.
+	The script will use the email server smtp.office365.com on port 587 using SSL, sending 
+	from webster@carlwebster.com, sending to ITGroup@carlwebster.com.
+	If the current user's credentials are not valid to send email, the user will be prompted 
+	to enter valid credentials.
 .INPUTS
 	None.  You cannot pipe objects to this script.
 .OUTPUTS
@@ -221,9 +282,9 @@
 	This script creates a Word or PDF document.
 .NOTES
 	NAME: DocumentCM12R2v2.ps1
-	VERSION: 2.32
+	VERSION: 2.33
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: February 13, 2017
+	LASTEDIT: December 16, 2017
 #>
 
 #endregion
@@ -234,16 +295,26 @@
 
 Param(
 	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
-	[Switch]$MSWord=$False,
-
 	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
 	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
-	[Switch]$PDF=$False,
-
-	[parameter(Mandatory=$False)] 
-	[Switch]$AddDateTime=$False,
-	
+	[Alias("CA")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyAddress="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CE")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyEmail="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CF")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyFax="",
+    
 	[parameter(ParameterSetName="Word",Mandatory=$False)] 
 	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
 	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
@@ -252,8 +323,15 @@ Param(
 	[string]$CompanyName="",
     
 	[parameter(ParameterSetName="Word",Mandatory=$False)] 
-	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
 	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Alias("CPh")]
+	[ValidateNotNullOrEmpty()]
+	[string]$CompanyPhone="",
+    
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
 	[Alias("CP")]
 	[ValidateNotNullOrEmpty()]
 	[string]$CoverPage="Sideline", 
@@ -264,6 +342,14 @@ Param(
 	[Alias("UN")]
 	[ValidateNotNullOrEmpty()]
 	[string]$UserName=$env:username,
+
+	[parameter(ParameterSetName="Word",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Switch]$MSWord=$False,
+
+	[parameter(ParameterSetName="PDF",Mandatory=$False)] 
+	[parameter(ParameterSetName="SMTP",Mandatory=$False)] 
+	[Switch]$PDF=$False,
 
 	[parameter(Mandatory=$False)] 
 	[Switch]$Software,
@@ -308,6 +394,19 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.33
+#	Fixed invalid variable found by RJimenez
+#	Removed code that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Reordered the parameters in the help text and parameter list so they match and are grouped better
+#	Replaced _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
+#	Updated Function ProcessScriptEnd for the new Cover Page properties and Parameters
+#	Updated Function ShowScriptOptions for the new Cover Page properties and Parameters
+#	Updated Function UpdateDocumentProperties for the new Cover Page properties and Parameters
+#	Updated help text
+
+#Version 2.32 13-Feb-2017
+#	Fixed French wording for Table of Contents 2 (Thanks to David Rouquier)
+
 #Version 2.31 7-Nov-2016
 #	Added Chinese language support
 #	Fixed typos in help text
@@ -340,88 +439,6 @@ Set-StrictMode -Version 2
 $PSDefaultParameterValues = @{"*:Verbose"=$True}
 $SaveEAPreference = $ErrorActionPreference
 $ErrorActionPreference = 'SilentlyContinue'
-
-If($PDF -eq $Null)
-{
-	$PDF = $False
-}
-If($MSWord -eq $Null)
-{
-	$MSWord = $False
-}
-If($AddDateTime -eq $Null)
-{
-	$AddDateTime = $False
-}
-If($Folder -eq $Null)
-{
-	$Folder = ""
-}
-If($SmtpServer -eq $Null)
-{
-	$SmtpServer = ""
-}
-If($SmtpPort -eq $Null)
-{
-	$SmtpPort = 25
-}
-If($UseSSL -eq $Null)
-{
-	$UseSSL = $False
-}
-If($From -eq $Null)
-{
-	$From = ""
-}
-If($To -eq $Null)
-{
-	$To = ""
-}
-If($Dev -eq $Null)
-{
-	$Dev = $False
-}
-
-If(!(Test-Path Variable:SmtpServer))
-{
-	$SmtpServer = ""
-}
-If(!(Test-Path Variable:SmtpPort))
-{
-	$SmtpPort = 25
-}
-If(!(Test-Path Variable:UseSSL))
-{
-	$UseSSL = $False
-}
-If(!(Test-Path Variable:From))
-{
-	$From = ""
-}
-If(!(Test-Path Variable:To))
-{
-	$To = ""
-}
-If(!(Test-Path Variable:PDF))
-{
-	$PDF = $False
-}
-If(!(Test-Path Variable:MSWord))
-{
-	$MSWord = $False
-}
-If(!(Test-Path Variable:AddDateTime))
-{
-	$AddDateTime = $False
-}
-If(!(Test-Path Variable:Folder))
-{
-	$Folder = ""
-}
-If(!(Test-Path Variable:Dev))
-{
-	$Dev = $False
-}
 
 If($Dev)
 {
@@ -470,8 +487,8 @@ Else
 	}
 	Else
 	{
-		Write-Verbose "$(Get-Date): MSWord is $($MSWord)"
-		Write-Verbose "$(Get-Date): PDF is $($PDF)"
+		Write-Verbose "$(Get-Date): MSWord is $MSWord"
+		Write-Verbose "$(Get-Date): PDF is $PDF"
 	}
 	Write-Error "Unable to determine output parameter.  Script cannot continue"
 	Exit
@@ -1000,21 +1017,44 @@ Function ValidateCompanyName
 	}
 }
 
-Function _SetDocumentProperty 
-{
-	#jeff hicks
-	Param([object]$Properties,[string]$Name,[string]$Value)
-	#get the property object
-	$prop = $properties | ForEach { 
-		$propname=$_.GetType().InvokeMember("Name","GetProperty",$Null,$_,$Null)
-		If($propname -eq $Name) 
-		{
-			Return $_
-		}
-	} #ForEach
-
-	#set the value
-	$Prop.GetType().InvokeMember("Value","SetProperty",$Null,$prop,$Value)
+Function Set-DocumentProperty {
+    <#
+	.SYNOPSIS
+	Function to set the Title Page document properties in MS Word
+	.DESCRIPTION
+	Long description
+	.PARAMETER Document
+	Current Document Object
+	.PARAMETER DocProperty
+	Parameter description
+	.PARAMETER Value
+	Parameter description
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Title -Value 'MyTitle'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Company -Value 'MyCompany'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Author -Value 'Jim Moyle'
+	.EXAMPLE
+	Set-DocumentProperty -Document $Script:Doc -DocProperty Subject -Value 'MySubjectTitle'
+	.NOTES
+	Function Created by Jim Moyle June 2017
+	Twitter : @JimMoyle
+	#>
+    param (
+        [object]$Document,
+        [String]$DocProperty,
+        [string]$Value
+    )
+    try {
+        $binding = "System.Reflection.BindingFlags" -as [type]
+        $builtInProperties = $Document.BuiltInDocumentProperties
+        $property = [System.__ComObject].invokemember("item", $binding::GetProperty, $null, $BuiltinProperties, $DocProperty)
+        [System.__ComObject].invokemember("value", $binding::SetProperty, $null, $property, $Value)
+    }
+    catch {
+        Write-Warning "Failed to set $DocProperty to $Value"
+    }
 }
 
 Function FindWordDocumentEnd
@@ -1377,24 +1417,24 @@ Function SetupWord
 Function UpdateDocumentProperties
 {
 	Param([string]$AbstractTitle, [string]$SubjectTitle)
+	#updated 8-Jun-2017 with additional cover page fields
 	#Update document properties
 	If($MSWORD -or $PDF)
 	{
 		If($Script:CoverPagesExist)
 		{
 			Write-Verbose "$(Get-Date): Set Cover Page Properties"
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Company" $Script:CoName
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Title" $Script:title
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Author" $username
-
-			_SetDocumentProperty $Script:Doc.BuiltInDocumentProperties "Subject" $SubjectTitle
+			#8-Jun-2017 put these 4 items in alpha order
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Author -Value $UserName
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Company -Value $Script:CoName
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Subject -Value $SubjectTitle
+            Set-DocumentProperty -Document $Script:Doc -DocProperty Title -Value $Script:title
 
 			#Get the Coverpage XML part
 			$cp = $Script:Doc.CustomXMLParts | Where {$_.NamespaceURI -match "coverPageProps$"}
 
 			#get the abstract XML part
 			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "Abstract"}
-
 			#set the text
 			If([String]::IsNullOrEmpty($Script:CoName))
 			{
@@ -1404,7 +1444,30 @@ Function UpdateDocumentProperties
 			{
 				[string]$abstract = "$($AbstractTitle) for $($Script:CoName)"
 			}
+			$ab.Text = $abstract
 
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyAddress"}
+			#set the text
+			[string]$abstract = $CompanyAddress
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyEmail"}
+			#set the text
+			[string]$abstract = $CompanyEmail
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyFax"}
+			#set the text
+			[string]$abstract = $CompanyFax
+			$ab.Text = $abstract
+
+			#added 8-Jun-2017
+			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyPhone"}
+			#set the text
+			[string]$abstract = $CompanyPhone
 			$ab.Text = $abstract
 
 			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "PublishDate"}
@@ -1980,8 +2043,12 @@ Function ShowScriptOptions
 	Write-Verbose "$(Get-Date): Add DateTime      : $($AddDateTime)"
 	If($MSWORD -or $PDF)
 	{
-		Write-Verbose "$(Get-Date): Company Name      : $($Script:CoName)"
-		Write-Verbose "$(Get-Date): Cover Page        : $($CoverPage)"
+		Write-Verbose "$(Get-Date): Company Address : $CompanyAddress"
+		Write-Verbose "$(Get-Date): Company Email   : $CompanyEmail"
+		Write-Verbose "$(Get-Date): Company Fax     : $CompanyFax"
+		Write-Verbose "$(Get-Date): Company Name    : $Script:CoName"
+		Write-Verbose "$(Get-Date): Company Phone   : $CompanyPhone"
+		Write-Verbose "$(Get-Date): Cover Page      : $CoverPage"
 	}
 	Write-Verbose "$(Get-Date): Dev               : $($Dev)"
 	If($Dev)
@@ -2757,15 +2824,63 @@ ForEach($CMSite in $CMSites)
 	WriteWordLine 0 0 ""
 	$Table = $Null
 
-	$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
-	WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
-	ForEach($CMManagementPoint in $CMManagementPoints)
-	{
-		Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
-		$CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
-		WriteWordLine 0 0 "$($CMMPServerName)"
-	}
+	#change for 2.33
+	#$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode
+	#WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
+	#ForEach($CMManagementPoint in $CMManagementPoints)
+	#{
+	#	Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+	#	$CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
+	#	WriteWordLine 0 0 "$($CMMPServerName)"
+	#}
 
+	WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
+	$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode -EA 0
+	
+	If($? -and $Null -ne $CMManagementPoints)
+	{
+		$MPCount = 0
+		If($CMManagementPoints -is [array])
+		{
+			$MPCount = $CMManagementPoints.Count
+		}
+		Else
+		{
+			$MPCount = 1
+		}
+		
+		Write-Verbose "$(Get-Date):   $MPCount Management Points were found"
+		$CMMPServerName = $Null
+		
+		ForEach($CMManagementPoint in $CMManagementPoints)
+		{
+			Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+			If(($Null -ne $CMManagementPoint.NetworkOSPath.Split('\\')[2]) -and ($Null -ne $CMMPServerName))
+			{
+				$CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
+				Write-Verbose "$(Get-Date):   CMMPServerName has been set to $CMMPServerName"
+				WriteWordLine 0 0 "$($CMMPServerName)"
+				#As soon as the variable is set, we are done with the loop
+				Break
+			}
+		}
+	}
+	ElseIf($? -and $Null -eq $CMManagementPoints)
+	{
+		Write-Verbose "$(Get-Date):   No Management Points were found"
+		#no error happened but nothing was found
+		#set the variable $CMMPServerName to $SMSProvider
+		$CMMPServerName = $SMSProvider
+	}
+	Else
+	{
+		Write-Verbose "$(Get-Date):   An error happened while looking for Management Points"
+		#some error happened
+		#set the variable $CMMPServerName to $SMSProvider
+		$CMMPServerName = $SMSProvider
+	}
+	#end of 2.33 change
+	
 	WriteWordLine 2 0 "Summary of Distribution Points for Site $($CMSite.SiteCode)"
 	$CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
 
@@ -2868,6 +2983,12 @@ ForEach($CMSite in $CMSites)
 	-Namespace root\sms\site_$($CMSite.SiteCode) `
 	-ComputerName $CMMPServerName | `
 	Where-Object {$_.rolename -eq 'SMS Software Update Point'}
+
+	##V2.33 change - bug found by RJimenez
+	#$CMSUPs = Get-WmiObject -Class sms_sci_sysresuse `
+	#-Namespace root\sms\site_$($CMSite.SiteCode) `
+	#-ComputerName $SMSProvider | `
+	#Where-Object {$_.rolename -eq 'SMS Software Update Point'}
 	
 	#$CMSUPs = (Get-CMSoftwareUpdatePoint).Where({$_.SiteCode -eq "$($CMSite.SiteCode)"})
 	If(-not [string]::IsNullOrEmpty($CMSUPs))
@@ -5437,8 +5558,12 @@ Function ProcessScriptEnd
 		Out-File -FilePath $SIFile -Append -InputObject "Add DateTime       : $($AddDateTime)" 4>$Null
 		If($MSWORD -or $PDF)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "Company Name       : $($Script:CoName)" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Cover Page         : $($CoverPage)" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "Company Address: $CompanyAddress" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Email  : $CompanyEmail" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Fax    : $CompanyFax" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Name   : $Script:CoName" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Phone  : $CompanyPhone" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Cover Page     : $CoverPage" 4>$Null
 		}
 		Out-File -FilePath $SIFile -Append -InputObject "Dev                : $($Dev)" 4>$Null
 		If($Dev)
