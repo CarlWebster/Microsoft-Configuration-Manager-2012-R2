@@ -284,7 +284,7 @@
 	NAME: DocumentCM12R2v2.ps1
 	VERSION: 2.33
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: December 16, 2017
+	LASTEDIT: December 19, 2017
 #>
 
 #endregion
@@ -394,8 +394,9 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
-#Version 2.33
-#	Fixed invalid variable found by RJimenez
+#Version 2.33 19-Dec-2017
+#	Added error checking for retrieving Site information. Abort the script if there was an error.
+#	Changed code the set the $CMMPServerName variable by adding error checking (RJimenez)
 #	Removed code that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
 #	Reordered the parameters in the help text and parameter list so they match and are grouped better
 #	Replaced _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
@@ -2650,12 +2651,22 @@ If(-not (Get-PSDrive -Name $SiteCode))
 
 WriteWordLine 1 0 'Summary of all Sites in this Hierarchy'
 Write-Verbose "$(Get-Date):   Getting Site Information"
-$CMSites = Get-CMSite
+$CMSites = Get-CMSite -EA 0
 
-$CAS                    = $CMSites | Where-Object {$_.Type -eq 4}
-$ChildPrimarySites      = $CMSites | Where-Object {$_.Type -eq 3}
-$StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
-$SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
+#V2.33 change
+If($? -and $Null -ne $CMSites)
+{
+	Write-Verbose "$(Get-Date):   Successfully retrieved Site Information"
+	$CAS                    = $CMSites | Where-Object {$_.Type -eq 4}
+	$ChildPrimarySites      = $CMSites | Where-Object {$_.Type -eq 3}
+	$StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
+	$SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
+}
+ELse
+{
+	Write-Error "There was a problem retrieving Site Information. Script will now abort."
+	exit 1
+}
 
 #region CAS
 If(-not [string]::IsNullOrEmpty($CAS))
@@ -2835,6 +2846,7 @@ ForEach($CMSite in $CMSites)
 	#}
 
 	WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
+	Write-Verbose "$(Get-Date):   Retrieving Management Points"
 	$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode -EA 0
 	
 	If($? -and $Null -ne $CMManagementPoints)
@@ -2879,6 +2891,7 @@ ForEach($CMSite in $CMSites)
 		#set the variable $CMMPServerName to $SMSProvider
 		$CMMPServerName = $SMSProvider
 	}
+	Write-Verbose "$(Get-Date):   Completed Management Points"
 	#end of 2.33 change
 	
 	WriteWordLine 2 0 "Summary of Distribution Points for Site $($CMSite.SiteCode)"
