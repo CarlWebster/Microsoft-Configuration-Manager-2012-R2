@@ -6,6 +6,10 @@
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.34
+#	Add back in missing parameter AddDateTime
+#	Add error checking for Get-SiteCode
+
 #Version 2.33 19-Dec-2017
 #	Added error checking for retrieving Site information. Abort the script if there was an error.
 #	Changed code the set the $CMMPServerName variable by adding error checking (RJimenez)
