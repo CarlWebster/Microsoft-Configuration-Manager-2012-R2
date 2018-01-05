@@ -284,7 +284,7 @@
 	NAME: DocumentCM12R2v2.ps1
 	VERSION: 2.34
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: December 22, 2017
+	LASTEDIT: January 5, 2018
 #>
 
 #endregion
@@ -405,7 +405,7 @@ Param(
 #Version 2.33 19-Dec-2017
 #	Added error checking for retrieving Site information. Abort the script if there was an error.
 #	Changed code the set the $CMMPServerName variable by adding error checking (RJimenez)
-#	Removed code that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Removed code that made sure all Parameters were set to default values if for some reason they did not exist or values were $Null
 #	Reordered the parameters in the help text and parameter list so they match and are grouped better
 #	Replaced _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
 #	Updated Function ProcessScriptEnd for the new Cover Page properties and Parameters
