@@ -282,9 +282,9 @@
 	This script creates a Word or PDF document.
 .NOTES
 	NAME: DocumentCM12R2v2.ps1
-	VERSION: 2.33
+	VERSION: 2.34
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: December 19, 2017
+	LASTEDIT: January 5, 2018
 #>
 
 #endregion
@@ -352,6 +352,10 @@ Param(
 	[Switch]$PDF=$False,
 
 	[parameter(Mandatory=$False)] 
+	[Alias("ADT")]
+	[Switch]$AddDateTime=$False,
+	
+	[parameter(Mandatory=$False)] 
 	[Switch]$Software,
 
 	[parameter(Mandatory=$False)] 
@@ -394,10 +398,14 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.34
+#	Add back in missing parameter AddDateTime
+#	Add error checking for Get-SiteCode
+
 #Version 2.33 19-Dec-2017
 #	Added error checking for retrieving Site information. Abort the script if there was an error.
 #	Changed code the set the $CMMPServerName variable by adding error checking (RJimenez)
-#	Removed code that made sure all Parameters were set to default values if for some reason they did exist or values were $Null
+#	Removed code that made sure all Parameters were set to default values if for some reason they did not exist or values were $Null
 #	Reordered the parameters in the help text and parameter list so they match and are grouped better
 #	Replaced _SetDocumentProperty function with Jim Moyle's Set-DocumentProperty function
 #	Updated Function ProcessScriptEnd for the new Cover Page properties and Parameters
@@ -2624,25 +2632,46 @@ Function Load-ConfigMgrAssemblies()
 	}
 }
 
-$SiteCode = Get-SiteCode
-
-Write-Verbose "$(Get-Date): Start writing report data"
-
-$LocationBeforeExecution = Get-Location
-
-$Script:selection.InsertNewPage() | Out-Null
-
-#Import the CM12 Powershell cmdlets
-If(-not (Test-Path -Path $SiteCode))
+#v2.34 change
+If($Dev)
 {
-	Write-Verbose "$(Get-Date):   CM12 module has not been imported yet, will import it now."
-	Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
+	Out-File -FilePath $Script:DevErrorFile -InputObject $error 4>$Null
 }
-#CM12 cmdlets need to be run from the CM12 drive
-Set-Location "$($SiteCode):" | Out-Null
-If(-not (Get-PSDrive -Name $SiteCode))
+
+# clear error variable in case Get-SiteCode fails
+$error.Clear()
+
+$SiteCode = Get-SiteCode -EA 0
+
+#V2.34 add error checking
+If ($? -and $Null -ne $SiteCode)
 {
-	Write-Error "There was a problem loading the Configuration Manager powershell module and accessing the site's PSDrive."
+
+	Write-Verbose "$(Get-Date): Start writing report data"
+
+	$LocationBeforeExecution = Get-Location
+
+	$Script:selection.InsertNewPage() | Out-Null
+
+	#Import the CM12 Powershell cmdlets
+	If(-not (Test-Path -Path $SiteCode))
+	{
+		Write-Verbose "$(Get-Date):   CM12 module has not been imported yet, will import it now."
+		Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
+	}
+	#CM12 cmdlets need to be run from the CM12 drive
+	Set-Location "$($SiteCode):" | Out-Null
+	If(-not (Get-PSDrive -Name $SiteCode))
+	{
+		Write-Error "There was a problem loading the Configuration Manager powershell module and accessing the site's PSDrive."
+		exit 1
+	}
+}
+Else
+{
+	#V2.34 change
+	Write-Error "There was a problem retrieving the Site Code. Script will now abort."
+	$error
 	exit 1
 }
 
