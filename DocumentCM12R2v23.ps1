@@ -282,9 +282,9 @@
 	This script creates a Word or PDF document.
 .NOTES
 	NAME: DocumentCM12R2v2.ps1
-	VERSION: 2.34
+	VERSION: 2.35
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: January 5, 2018
+	LASTEDIT: April 6, 2018
 #>
 
 #endregion
@@ -398,7 +398,10 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
-#Version 2.34
+#Version 2.35 6-Apr-2018
+#	Code cleanup from Visual Studio Code
+
+#Version 2.34 5-Jan-2018
 #	Add back in missing parameter AddDateTime
 #	Add error checking for Get-SiteCode
 
@@ -996,7 +999,7 @@ Function CheckWordPrereq
 	$SessionID = (Get-Process -PID $PID).SessionId
 	
 	#Find out if winword is running in our session
-	[bool]$wordrunning = ((Get-Process 'WinWord' -ea 0)|?{$_.SessionId -eq $SessionID}) -ne $Null
+	[bool]$wordrunning = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}) -ne $Null
 	If($wordrunning)
 	{
 		$ErrorActionPreference = $SaveEAPreference
@@ -1293,13 +1296,13 @@ Function SetupWord
 
 	$Script:Word.Templates.LoadBuildingBlocks()
 	#word 2010/2013/2016
-	$BuildingBlocksCollection = $Script:Word.Templates | Where {$_.name -eq "Built-In Building Blocks.dotx"}
+	$BuildingBlocksCollection = $Script:Word.Templates | Where-Object {$_.name -eq "Built-In Building Blocks.dotx"}
 
 	Write-Verbose "$(Get-Date): Attempt to load cover page $($CoverPage)"
 	$part = $Null
 
 	$BuildingBlocksCollection | 
-	ForEach{
+	ForEach-Object{
 		If ($_.BuildingBlockEntries.Item($CoverPage).Name -eq $CoverPage) 
 		{
 			$BuildingBlocks = $_
@@ -1440,10 +1443,10 @@ Function UpdateDocumentProperties
             Set-DocumentProperty -Document $Script:Doc -DocProperty Title -Value $Script:title
 
 			#Get the Coverpage XML part
-			$cp = $Script:Doc.CustomXMLParts | Where {$_.NamespaceURI -match "coverPageProps$"}
+			$cp = $Script:Doc.CustomXMLParts | Where-Object {$_.NamespaceURI -match "coverPageProps$"}
 
 			#get the abstract XML part
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "Abstract"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "Abstract"}
 			#set the text
 			If([String]::IsNullOrEmpty($Script:CoName))
 			{
@@ -1456,30 +1459,30 @@ Function UpdateDocumentProperties
 			$ab.Text = $abstract
 
 			#added 8-Jun-2017
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyAddress"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "CompanyAddress"}
 			#set the text
 			[string]$abstract = $CompanyAddress
 			$ab.Text = $abstract
 
 			#added 8-Jun-2017
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyEmail"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "CompanyEmail"}
 			#set the text
 			[string]$abstract = $CompanyEmail
 			$ab.Text = $abstract
 
 			#added 8-Jun-2017
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyFax"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "CompanyFax"}
 			#set the text
 			[string]$abstract = $CompanyFax
 			$ab.Text = $abstract
 
 			#added 8-Jun-2017
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "CompanyPhone"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "CompanyPhone"}
 			#set the text
 			[string]$abstract = $CompanyPhone
 			$ab.Text = $abstract
 
-			$ab = $cp.documentelement.ChildNodes | Where {$_.basename -eq "PublishDate"}
+			$ab = $cp.documentelement.ChildNodes | Where-Object {$_.basename -eq "PublishDate"}
 			#set the text
 			[string]$abstract = (Get-Date -Format d).ToString()
 			$ab.Text = $abstract
@@ -2106,9 +2109,9 @@ Function validStateProp( [object] $object, [string] $topLevel, [string] $secondL
 	#function created 8-jan-2014 by Michael B. Smith
 	if( $object )
 	{
-		If( ( gm -Name $topLevel -InputObject $object ) )
+		If( ( Get-Member -Name $topLevel -InputObject $object ) )
 		{
-			If( ( gm -Name $secondLevel -InputObject $object.$topLevel ) )
+			If( ( Get-Member -Name $secondLevel -InputObject $object.$topLevel ) )
 			{
 				Return $True
 			}
@@ -2206,7 +2209,7 @@ Function SaveandCloseDocumentandShutdownWord
 					$SessionID = (Get-Process -PID $PID).SessionId
 					
 					#Find out if winword is running in our session
-					$wordprocess = ((Get-Process 'WinWord' -ea 0)|?{$_.SessionId -eq $SessionID}).Id
+					$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
 					If($wordprocess -gt 0)
 					{
 						Write-Verbose "$(Get-Date): Attempting to stop WinWord process # $($wordprocess)"
@@ -2235,7 +2238,7 @@ Function SaveandCloseDocumentandShutdownWord
 
 	#Find out if winword is running in our session
 	$wordprocess = $Null
-	$wordprocess = ((Get-Process 'WinWord' -ea 0)|?{$_.SessionId -eq $SessionID}).Id
+	$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
 	If($null -ne $wordprocess -and $wordprocess -gt 0)
 	{
 		Write-Verbose "$(Get-Date): WinWord process is still running. Attempting to stop WinWord process # $($wordprocess)"
@@ -2602,7 +2605,7 @@ Function Get-ApplicationObjectFromServer
 	If($applicationFoundInCollectionEnumerator.MoveNext())
 	{
 		$ReturnValue = $applicationFoundInCollectionEnumerator.Current
-		$getResult = $ReturnValue.Get()        
+		#$getResult = $ReturnValue.Get()        
 		$sdmPackageXml = $ReturnValue.Properties['SDMPackageXML'].Value.ToString()
 		[Microsoft.ConfigurationManagement.ApplicationManagement.Serialization.SccmSerializer]::DeserializeFromString($sdmPackageXml)
 	}
@@ -3092,7 +3095,7 @@ If(-not [string]::IsNullOrEmpty($Boundaries))
 			If(-not [string]::IsNullOrEmpty($Boundary.SiteSystems))
 			{
 				ForEach-Object `
-				-Begin {$BoundarySiteSystems= $Boundary.SiteSystems} `
+				-Begin {$BoundarySiteSystems = $Boundary.SiteSystems} `
 				-Process {$NamesOfBoundarySiteSystems += $BoundarySiteSystems.split(',')} `
 				-End {$NamesOfBoundarySiteSystems} | Out-Null
 			}
@@ -4421,7 +4424,7 @@ If($ListAllInformation)
 		$OtherCollectionRules = $Collection.CollectionRules
 		try 
 		{
-			$DirectRules = $CollectionRules | where {$_.ResourceID} -ErrorAction SilentlyContinue
+			$DirectRules = $CollectionRules | Where-Object {$_.ResourceID} -ErrorAction SilentlyContinue
 		}
 		catch [System.Management.Automation.PropertyNotFoundException] 
 		{
@@ -4429,7 +4432,7 @@ If($ListAllInformation)
 		}
 		try 
 		{
-			$QueryRules = $CollectionRules | where {$_.QueryExpression} -ErrorAction SilentlyContinue                            
+			$QueryRules = $CollectionRules | Where-Object {$_.QueryExpression} -ErrorAction SilentlyContinue                            
 		}
 		catch [System.Management.Automation.PropertyNotFoundException] 
 		{
@@ -4437,7 +4440,7 @@ If($ListAllInformation)
 		}
 		try 
 		{
-			$IncludeRules = $OtherCollectionRules | where {$_.IncludeCollectionID} -ErrorAction SilentlyContinue
+			$IncludeRules = $OtherCollectionRules | Where-Object {$_.IncludeCollectionID} -ErrorAction SilentlyContinue
 		}
 		catch [System.Management.Automation.PropertyNotFoundException] 
 		{
