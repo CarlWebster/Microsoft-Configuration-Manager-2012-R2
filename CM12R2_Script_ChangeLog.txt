@@ -6,6 +6,14 @@
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.36 17-Dec-2019
+#	Fix Swedish Table of Contents (Thanks to Johan Kallio)
+#		From 
+#			'sv-'	{ 'Automatisk innehållsförteckning2'; Break }
+#		To
+#			'sv-'	{ 'Automatisk innehållsförteckn2'; Break }
+#	Updated help text
+
 #Version 2.35 6-Apr-2018
 #	Code cleanup from Visual Studio Code
 
