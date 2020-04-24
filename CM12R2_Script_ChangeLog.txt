@@ -6,6 +6,14 @@
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.37 24-Apr-2020
+#	Add Log parameter to create a transaction log for troubleshooting
+#	Remove the SMTP parameterset and manually verify the parameters
+#	Reorder parameters
+#	Update Function SendEmail to handle anonymous unauthenticated email
+#	Update Functions ShowScriptOptions and ProcessScriptEnd
+#	Update Help Text
+
 #Version 2.36 17-Dec-2019
 #	Fix Swedish Table of Contents (Thanks to Johan Kallio)
 #		From 
