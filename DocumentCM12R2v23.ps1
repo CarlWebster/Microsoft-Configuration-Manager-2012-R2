@@ -359,7 +359,7 @@
 	NAME: DocumentCM12R2v2.ps1
 	VERSION: 2.37
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: April 23, 2020
+	LASTEDIT: April 24, 2020
 #>
 
 #endregion
@@ -467,7 +467,7 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
-#Version 2.37
+#Version 2.37 24-Apr-2020
 #	Add Log parameter to create a transaction log for troubleshooting
 #	Remove the SMTP parameterset and manually verify the parameters
 #	Reorder parameters
