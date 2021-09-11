@@ -6,6 +6,28 @@
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.39 11-Sep-2021
+#	Add Function OutputReportFooter
+#	Add Parameter ReportFooter
+#		Outputs a footer section at the end of the report.
+#		Report Footer
+#			Report information:
+#				Created with: <Script Name> - Release Date: <Script Release Date>
+#				Script version: <Script Version>
+#				Started on <Date Time in Local Format>
+#				Elapsed time: nn days, nn hours, nn minutes, nn.nn seconds
+#				Ran from domain <Domain Name> by user <Username>
+#				Ran from the folder <Folder Name>
+#	Change all Write-Verbose $(Get-Date) to add -Format G to put the dates in the user's locale - recommended by Guy Leech
+#	Clean up Word formatting
+#	Fix $Null comparisons to put $Null on the left
+#	Update the following functions to latest versions
+#		AddWordTable
+#		CheckWordPrereq 
+#		SetWordCellFormat
+#		SetWordTableAlternateRowColor
+#	Update Functions ShowScriptOptions and ProcessScriptEnd to add $ReportFooter
+
 #Version 2.38 8-May-2020
 #	Add checking for a Word version of 0, which indicates the Office installation needs repairing
 #	Change color variables $wdColorGray15 and $wdColorGray05 from [long] to [int]

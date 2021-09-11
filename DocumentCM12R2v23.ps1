@@ -158,6 +158,27 @@
 	
 	This parameter is disabled by default.
 	This parameter has an alias of SI.
+.PARAMETER ReportFooter
+	Outputs a footer section at the end of the report.
+
+	This parameter has an alias of RF.
+	
+	Report Footer
+		Report information:
+			Created with: <Script Name> - Release Date: <Script Release Date>
+			Script version: <Script Version>
+			Started on <Date Time in Local Format>
+			Elapsed time: nn days, nn hours, nn minutes, nn.nn seconds
+			Ran from domain <Domain Name> by user <Username>
+			Ran from the folder <Folder Name>
+
+	Script Name and Script Release date are script-specific variables.
+	Script version is a script variable.
+	Start Date Time in Local Format is a script variable.
+	Elapsed time is a calculated value.
+	Domain Name is $env:USERDNSDOMAIN.
+	Username is $env:USERNAME.
+	Folder Name is a script variable.
 .PARAMETER SMSProvider
     Some information relies on WMI queries that need to be executed against the SMS 
 	Provider directly. 
@@ -357,9 +378,9 @@
 	This script creates a Word or PDF document.
 .NOTES
 	NAME: DocumentCM12R2v2.ps1
-	VERSION: 2.38
+	VERSION: 2.39
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: May 8, 2020
+	LASTEDIT: September 11, 2021
 #>
 
 #endregion
@@ -432,6 +453,10 @@ Param(
 	[Switch]$ScriptInfo=$False,
 	
 	[parameter(Mandatory=$False)] 
+	[Alias("RF")]
+	[Switch]$ReportFooter=$False,
+
+	[parameter(Mandatory=$False)] 
 	[string]$SMSProvider='localhost',
 
 	[parameter(Mandatory=$False)] 
@@ -466,6 +491,28 @@ Param(
 #webster@carlwebster.com
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
+
+#Version 2.39 11-Sep-2021
+#	Add Function OutputReportFooter
+#	Add Parameter ReportFooter
+#		Outputs a footer section at the end of the report.
+#		Report Footer
+#			Report information:
+#				Created with: <Script Name> - Release Date: <Script Release Date>
+#				Script version: <Script Version>
+#				Started on <Date Time in Local Format>
+#				Elapsed time: nn days, nn hours, nn minutes, nn.nn seconds
+#				Ran from domain <Domain Name> by user <Username>
+#				Ran from the folder <Folder Name>
+#	Change all Write-Verbose $(Get-Date) to add -Format G to put the dates in the user's locale - recommended by Guy Leech
+#	Clean up Word formatting
+#	Fix $Null comparisons to put $Null on the left
+#	Update the following functions to latest versions
+#		AddWordTable
+#		CheckWordPrereq 
+#		SetWordCellFormat
+#		SetWordTableAlternateRowColor
+#	Update Functions ShowScriptOptions and ProcessScriptEnd to add $ReportFooter
 
 #Version 2.38 8-May-2020
 #	Add checking for a Word version of 0, which indicates the Office installation needs repairing
@@ -541,10 +588,14 @@ Set-StrictMode -Version Latest
 
 #force  on
 $PSDefaultParameterValues = @{"*:Verbose"=$True}
-$SaveEAPreference = $ErrorActionPreference
-$ErrorActionPreference = 'SilentlyContinue'
+$SaveEAPreference         = $ErrorActionPreference
+$ErrorActionPreference    = 'SilentlyContinue'
+$script:MyVersion         = '2.39'
+$Script:ScriptName        = "DocumentCM12R2v23.ps1"
+$tmpdate                  = [datetime] "09/11/2021"
+$Script:ReleaseDate       = $tmpdate.ToUniversalTime().ToShortDateString()
 
-If($MSWord -eq $Null)
+If($Null -eq $MSWord)
 {
 	If($PDF)
 	{
@@ -561,32 +612,32 @@ If($MSWord -eq $False -and $PDF -eq $False)
 	$MSWord = $True
 }
 
-Write-Verbose "$(Get-Date): Testing output parameters"
+Write-Verbose "$(Get-Date -Format G): Testing output parameters"
 
 If($MSWord)
 {
-	Write-Verbose "$(Get-Date): MSWord is set"
+	Write-Verbose "$(Get-Date -Format G): MSWord is set"
 }
 ElseIf($PDF)
 {
-	Write-Verbose "$(Get-Date): PDF is set"
+	Write-Verbose "$(Get-Date -Format G): PDF is set"
 }
 Else
 {
 	$ErrorActionPreference = $SaveEAPreference
-	Write-Verbose "$(Get-Date): Unable to determine output parameter"
-	If($MSWord -eq $Null)
+	Write-Verbose "$(Get-Date -Format G): Unable to determine output parameter"
+	If($Null -eq $MSWord)
 	{
-		Write-Verbose "$(Get-Date): MSWord is Null"
+		Write-Verbose "$(Get-Date -Format G): MSWord is Null"
 	}
-	ElseIf($PDF -eq $Null)
+	ElseIf($Null -eq $PDF)
 	{
-		Write-Verbose "$(Get-Date): PDF is Null"
+		Write-Verbose "$(Get-Date -Format G): PDF is Null"
 	}
 	Else
 	{
-		Write-Verbose "$(Get-Date): MSWord is $MSWord"
-		Write-Verbose "$(Get-Date): PDF is $PDF"
+		Write-Verbose "$(Get-Date -Format G): MSWord is $MSWord"
+		Write-Verbose "$(Get-Date -Format G): PDF is $PDF"
 	}
 	Write-Error "Unable to determine output parameter.  Script cannot continue"
 	Exit
@@ -594,7 +645,7 @@ Else
 
 If($Folder -ne "")
 {
-	Write-Verbose "$(Get-Date): Testing folder path"
+	Write-Verbose "$(Get-Date -Format G): Testing folder path"
 	#does it exist
 	If(Test-Path $Folder -EA 0)
 	{
@@ -602,7 +653,7 @@ If($Folder -ne "")
 		If(Test-Path $Folder -pathType Container -EA 0)
 		{
 			#it exists and it is a folder
-			Write-Verbose "$(Get-Date): Folder path $Folder exists and is a folder"
+			Write-Verbose "$(Get-Date -Format G): Folder path $Folder exists and is a folder"
 		}
 		Else
 		{
@@ -648,12 +699,12 @@ If($Log)
 	try 
 	{
 		Start-Transcript -Path $Script:LogPath -Force -Verbose:$false | Out-Null
-		Write-Verbose "$(Get-Date): Transcript/log started at $Script:LogPath"
+		Write-Verbose "$(Get-Date -Format G): Transcript/log started at $Script:LogPath"
 		$Script:StartLog = $true
 	} 
 	catch 
 	{
-		Write-Verbose "$(Get-Date): Transcript/log failed at $Script:LogPath"
+		Write-Verbose "$(Get-Date -Format G): Transcript/log failed at $Script:LogPath"
 		$Script:StartLog = $false
 	}
 }
@@ -728,7 +779,7 @@ If($MSWord -or $PDF)
 {
 	#try and fix the issue with the $CompanyName variable
 	$Script:CoName = $CompanyName
-	Write-Verbose "$(Get-Date): CoName is $($Script:CoName)"
+	Write-Verbose "$(Get-Date -Format G): CoName is $($Script:CoName)"
 	
 	#the following values were attained from 
 	#http://groovy.codehaus.org/modules/scriptom/1.6.0/scriptom-office-2K3-tlb/apidocs/
@@ -1178,15 +1229,24 @@ Function CheckWordPrereq
 	If((Test-Path  REGISTRY::HKEY_CLASSES_ROOT\Word.Application) -eq $False)
 	{
 		$ErrorActionPreference = $SaveEAPreference
-		Write-Host "`n`n`t`tThis script directly outputs to Microsoft Word, please install Microsoft Word`n`n"
-		Exit
+		
+		If(($MSWord -eq $False) -and ($PDF -eq $True))
+		{
+			Write-Host "`n`n`t`tThis script uses Microsoft Word's SaveAs PDF function, please install Microsoft Word`n`n"
+			Exit
+		}
+		Else
+		{
+			Write-Host "`n`n`t`tThis script directly outputs to Microsoft Word, please install Microsoft Word`n`n"
+			Exit
+		}
 	}
 
 	#find out our session (usually "1" except on TS/RDC or Citrix)
 	$SessionID = (Get-Process -PID $PID).SessionId
 	
-	#Find out if winword is running in our session
-	[bool]$wordrunning = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}) -ne $Null
+	#Find out if winword runsning in our session
+	[bool]$wordrunning = $null –ne ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID})
 	If($wordrunning)
 	{
 		$ErrorActionPreference = $SaveEAPreference
@@ -1266,10 +1326,10 @@ Function FindWordDocumentEnd
 
 Function SetupWord
 {
-	Write-Verbose "$(Get-Date): Setting up Word"
+	Write-Verbose "$(Get-Date -Format G): Setting up Word"
     
 	# Setup word for output
-	Write-Verbose "$(Get-Date): Create Word comObject."
+	Write-Verbose "$(Get-Date -Format G): Create Word comObject."
 	$Script:Word = New-Object -comobject "Word.Application" -EA 0 4>$Null
 	
 	If(!$? -or $Null -eq $Script:Word)
@@ -1291,7 +1351,7 @@ Function SetupWord
 		Exit
 	}
 
-	Write-Verbose "$(Get-Date): Determine Word language value"
+	Write-Verbose "$(Get-Date -Format G): Determine Word language value"
 	If( ( validStateProp $Script:Word Language Value__ ) )
 	{
 		[int]$Script:WordLanguageValue = [int]$Script:Word.Language.Value__
@@ -1315,7 +1375,7 @@ Function SetupWord
 		"
 		AbortScript
 	}
-	Write-Verbose "$(Get-Date): Word language value is $($Script:WordLanguageValue)"
+	Write-Verbose "$(Get-Date -Format G): Word language value is $($Script:WordLanguageValue)"
 	
 	$Script:WordCultureCode = GetCulture $Script:WordLanguageValue
 	
@@ -1382,7 +1442,7 @@ Function SetupWord
 	#only validate CompanyName if the field is blank
 	If([String]::IsNullOrEmpty($Script:CoName))
 	{
-		Write-Verbose "$(Get-Date): Company name is blank.  Retrieve company name from registry."
+		Write-Verbose "$(Get-Date -Format G): Company name is blank.  Retrieve company name from registry."
 		$TmpName = ValidateCompanyName
 		
 		If([String]::IsNullOrEmpty($TmpName))
@@ -1394,13 +1454,13 @@ Function SetupWord
 		Else
 		{
 			$Script:CoName = $TmpName
-			Write-Verbose "$(Get-Date): Updated company name to $($Script:CoName)"
+			Write-Verbose "$(Get-Date -Format G): Updated company name to $($Script:CoName)"
 		}
 	}
 
 	If($Script:WordCultureCode -ne "en-")
 	{
-		Write-Verbose "$(Get-Date): Check Default Cover Page for $($WordCultureCode)"
+		Write-Verbose "$(Get-Date -Format G): Check Default Cover Page for $($WordCultureCode)"
 		[bool]$CPChanged = $False
 		Switch ($Script:WordCultureCode)
 		{
@@ -1503,11 +1563,11 @@ Function SetupWord
 
 		If($CPChanged)
 		{
-			Write-Verbose "$(Get-Date): Changed Default Cover Page from Sideline to $($CoverPage)"
+			Write-Verbose "$(Get-Date -Format G): Changed Default Cover Page from Sideline to $($CoverPage)"
 		}
 	}
 
-	Write-Verbose "$(Get-Date): Validate cover page $($CoverPage) for culture code $($Script:WordCultureCode)"
+	Write-Verbose "$(Get-Date -Format G): Validate cover page $($CoverPage) for culture code $($Script:WordCultureCode)"
 	[bool]$ValidCP = $False
 	
 	$ValidCP = ValidateCoverPage $Script:WordVersion $CoverPage $Script:WordCultureCode
@@ -1515,8 +1575,8 @@ Function SetupWord
 	If(!$ValidCP)
 	{
 		$ErrorActionPreference = $SaveEAPreference
-		Write-Verbose "$(Get-Date): Word language value $($Script:WordLanguageValue)"
-		Write-Verbose "$(Get-Date): Culture code $($Script:WordCultureCode)"
+		Write-Verbose "$(Get-Date -Format G): Word language value $($Script:WordLanguageValue)"
+		Write-Verbose "$(Get-Date -Format G): Culture code $($Script:WordCultureCode)"
 		Write-Error "
 		`n`n
 		`t`t
@@ -1535,7 +1595,7 @@ Function SetupWord
 
 	#http://jdhitsolutions.com/blog/2012/05/san-diego-2012-powershell-deep-dive-slides-and-demos/
 	#using Jeff's Demo-WordReport.ps1 file for examples
-	Write-Verbose "$(Get-Date): Load Word Templates"
+	Write-Verbose "$(Get-Date -Format G): Load Word Templates"
 
 	[bool]$Script:CoverPagesExist = $False
 	[bool]$BuildingBlocksExist = $False
@@ -1544,7 +1604,7 @@ Function SetupWord
 	#word 2010/2013/2016
 	$BuildingBlocksCollection = $Script:Word.Templates | Where-Object {$_.name -eq "Built-In Building Blocks.dotx"}
 
-	Write-Verbose "$(Get-Date): Attempt to load cover page $($CoverPage)"
+	Write-Verbose "$(Get-Date -Format G): Attempt to load cover page $($CoverPage)"
 	$part = $Null
 
 	$BuildingBlocksCollection | 
@@ -1577,16 +1637,16 @@ Function SetupWord
 
 	If(!$Script:CoverPagesExist)
 	{
-		Write-Verbose "$(Get-Date): Cover Pages are not installed or the Cover Page $($CoverPage) does not exist."
+		Write-Verbose "$(Get-Date -Format G): Cover Pages are not installed or the Cover Page $($CoverPage) does not exist."
 		Write-Warning "Cover Pages are not installed or the Cover Page $($CoverPage) does not exist."
 		Write-Warning "This report will not have a Cover Page."
 	}
 
-	Write-Verbose "$(Get-Date): Create empty word doc"
+	Write-Verbose "$(Get-Date -Format G): Create empty word doc"
 	$Script:Doc = $Script:Word.Documents.Add()
 	If($Null -eq $Script:Doc)
 	{
-		Write-Verbose "$(Get-Date): "
+		Write-Verbose "$(Get-Date -Format G): "
 		$ErrorActionPreference = $SaveEAPreference
 		Write-Error "
 		`n`n
@@ -1603,7 +1663,7 @@ Function SetupWord
 	$Script:Selection = $Script:Word.Selection
 	If($Null -eq $Script:Selection)
 	{
-		Write-Verbose "$(Get-Date): "
+		Write-Verbose "$(Get-Date -Format G): "
 		$ErrorActionPreference = $SaveEAPreference
 		Write-Error "
 		`n`n
@@ -1622,7 +1682,7 @@ Function SetupWord
 	$Script:Word.ActiveDocument.DefaultTabStop = 36
 
 	#Disable Spell and Grammar Check to resolve issue and improve performance (from Pat Coughlin)
-	Write-Verbose "$(Get-Date): Disable grammar and spell checking"
+	Write-Verbose "$(Get-Date -Format G): Disable grammar and spell checking"
 	#bug reported 1-Apr-2014 by Tim Mangan
 	#save current options first before turning them off
 	$Script:CurrentGrammarOption = $Script:Word.Options.CheckGrammarAsYouType
@@ -1633,17 +1693,17 @@ Function SetupWord
 	If($BuildingBlocksExist)
 	{
 		#insert new page, getting ready for table of contents
-		Write-Verbose "$(Get-Date): Insert new page, getting ready for table of contents"
+		Write-Verbose "$(Get-Date -Format G): Insert new page, getting ready for table of contents"
 		$part.Insert($Script:Selection.Range,$True) | Out-Null
 		$Script:Selection.InsertNewPage()
 
 		#table of contents
-		Write-Verbose "$(Get-Date): Table of Contents - $($Script:MyHash.Word_TableOfContents)"
+		Write-Verbose "$(Get-Date -Format G): Table of Contents - $($Script:MyHash.Word_TableOfContents)"
 		$toc = $BuildingBlocks.BuildingBlockEntries.Item($Script:MyHash.Word_TableOfContents)
 		If($Null -eq $toc)
 		{
-			Write-Verbose "$(Get-Date): "
-			Write-Verbose "$(Get-Date): Table of Content - $($Script:MyHash.Word_TableOfContents) could not be retrieved."
+			Write-Verbose "$(Get-Date -Format G): "
+			Write-Verbose "$(Get-Date -Format G): Table of Content - $($Script:MyHash.Word_TableOfContents) could not be retrieved."
 			Write-Warning "This report will not have a Table of Contents."
 		}
 		Else
@@ -1653,16 +1713,16 @@ Function SetupWord
 	}
 	Else
 	{
-		Write-Verbose "$(Get-Date): Table of Contents are not installed."
+		Write-Verbose "$(Get-Date -Format G): Table of Contents are not installed."
 		Write-Warning "Table of Contents are not installed so this report will not have a Table of Contents."
 	}
 
 	#set the footer
-	Write-Verbose "$(Get-Date): Set the footer"
+	Write-Verbose "$(Get-Date -Format G): Set the footer"
 	[string]$footertext = "Report created by $username"
 
 	#get the footer
-	Write-Verbose "$(Get-Date): Get the footer and format font"
+	Write-Verbose "$(Get-Date -Format G): Get the footer and format font"
 	$Script:Doc.ActiveWindow.ActivePane.view.SeekView = $wdSeekPrimaryFooter
 	#get the footer and format font
 	$footers = $Script:Doc.Sections.Last.Footers
@@ -1676,15 +1736,15 @@ Function SetupWord
 			$footer.range.Font.Bold = $True
 		}
 	} #end ForEach
-	Write-Verbose "$(Get-Date): Footer text"
+	Write-Verbose "$(Get-Date -Format G): Footer text"
 	$Script:Selection.HeaderFooter.Range.Text = $footerText
 
 	#add page numbering
-	Write-Verbose "$(Get-Date): Add page numbering"
+	Write-Verbose "$(Get-Date -Format G): Add page numbering"
 	$Script:Selection.HeaderFooter.PageNumbers.Add($wdAlignPageNumberRight) | Out-Null
 
 	FindWordDocumentEnd
-	Write-Verbose "$(Get-Date):"
+	Write-Verbose "$(Get-Date -Format G):"
 	#end of Jeff Hicks 
 }
 
@@ -1697,7 +1757,7 @@ Function UpdateDocumentProperties
 	{
 		If($Script:CoverPagesExist)
 		{
-			Write-Verbose "$(Get-Date): Set Cover Page Properties"
+			Write-Verbose "$(Get-Date -Format G): Set Cover Page Properties"
 			#8-Jun-2017 put these 4 items in alpha order
             Set-DocumentProperty -Document $Script:Doc -DocProperty Author -Value $UserName
             Set-DocumentProperty -Document $Script:Doc -DocProperty Company -Value $Script:CoName
@@ -1749,7 +1809,7 @@ Function UpdateDocumentProperties
 			[string]$abstract = (Get-Date -Format d).ToString()
 			$ab.Text = $abstract
 
-			Write-Verbose "$(Get-Date): Update the Table of Contents"
+			Write-Verbose "$(Get-Date -Format G): Update the Table of Contents"
 			#update the Table of Contents
 			$Script:Doc.TablesOfContents.item(1).Update()
 			$cp = $Null
@@ -1939,19 +1999,19 @@ Function AddWordTable
 	{
 		Write-Debug ("Using parameter set '{0}'" -f $PSCmdlet.ParameterSetName);
 		## Check if -Columns wasn't specified but -Headers were (saves some additional parameter sets!)
-		If(($Columns -eq $Null) -and ($Headers -ne $Null)) 
+		If(($Null -eq $Columns) -and ($Null -eq $Headers)) 
 		{
 			Write-Warning "No columns specified and therefore, specified headers will be ignored.";
 			$Columns = $Null;
 		}
-		ElseIf(($Columns -ne $Null) -and ($Headers -ne $Null)) 
+		ElseIf(($Null -ne $Columns) -and ($Null -ne $Headers)) 
 		{
 			## Check if number of specified -Columns matches number of specified -Headers
 			If($Columns.Length -ne $Headers.Length) 
 			{
 				Write-Error "The specified number of columns does not match the specified number of headers.";
 			}
-		} ## end elseif
+		} ## end ElseIf
 	} ## end Begin
 
 	Process
@@ -1963,7 +2023,7 @@ Function AddWordTable
 		{
 			'CustomObject' 
 			{
-				If($Columns -eq $Null) 
+				If($Null -eq $Columns) 
 				{
 					## Build the available columns from all availble PSCustomObject note properties
 					[string[]] $Columns = @();
@@ -1977,8 +2037,8 @@ Function AddWordTable
 				## Add the table headers from -Headers or -Columns (except when in -List(view)
 				If(-not $List) 
 				{
-					Write-Debug ("$(Get-Date): `t`tBuilding table headers");
-					If($Headers -ne $Null) 
+					Write-Debug ("$(Get-Date -Format G): `t`tBuilding table headers");
+					If($Null -ne $Headers) 
 					{
                         [ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Headers));
 					}
@@ -1989,7 +2049,7 @@ Function AddWordTable
 				}
 
 				## Iterate through each PSCustomObject
-				Write-Debug ("$(Get-Date): `t`tBuilding table rows");
+				Write-Debug ("$(Get-Date -Format G): `t`tBuilding table rows");
 				ForEach($Object in $CustomObject) 
 				{
 					$OrderedValues = @();
@@ -2000,13 +2060,13 @@ Function AddWordTable
 					}
 					## Use the ordered list to add each column in specified order
 					[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $OrderedValues));
-				} ## end foreach
-				Write-Debug ("$(Get-Date): `t`t`tAdded '{0}' table rows" -f ($CustomObject.Count));
+				} ## end ForEach
+				Write-Debug ("$(Get-Date -Format G): `t`t`tAdded '{0}' table rows" -f ($CustomObject.Count));
 			} ## end CustomObject
 
 			Default 
 			{   ## Hashtable
-				If($Columns -eq $Null) 
+				If($Null -eq $Columns) 
 				{
 					## Build the available columns from all available hashtable keys. Hopefully
 					## all Hashtables have the same keys (they should for a table).
@@ -2016,8 +2076,8 @@ Function AddWordTable
 				## Add the table headers from -Headers or -Columns (except when in -List(view)
 				If(-not $List) 
 				{
-					Write-Debug ("$(Get-Date): `t`tBuilding table headers");
-					If($Headers -ne $Null) 
+					Write-Debug ("$(Get-Date -Format G): `t`tBuilding table headers");
+					If($Null -ne $Headers) 
 					{ 
 						[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $Headers));
 					}
@@ -2028,7 +2088,7 @@ Function AddWordTable
 				}
                 
 				## Iterate through each Hashtable
-				Write-Debug ("$(Get-Date): `t`tBuilding table rows");
+				Write-Debug ("$(Get-Date -Format G): `t`tBuilding table rows");
 				ForEach($Hash in $Hashtable) 
 				{
 					$OrderedValues = @();
@@ -2039,14 +2099,14 @@ Function AddWordTable
 					}
 					## Use the ordered list to add each column in specified order
 					[ref] $Null = $WordRangeString.AppendFormat("{0}`n", [string]::Join("`t", $OrderedValues));
-				} ## end foreach
+				} ## end ForEach
 
-				Write-Debug ("$(Get-Date): `t`t`tAdded '{0}' table rows" -f $Hashtable.Count);
+				Write-Debug ("$(Get-Date -Format G): `t`t`tAdded '{0}' table rows" -f $Hashtable.Count);
 			} ## end default
-		} ## end switch
+		} ## end Switch
 
 		## Create a MS Word range and set its text to our tab-delimited, concatenated string
-		Write-Debug ("$(Get-Date): `t`tBuilding table range");
+		Write-Debug ("$(Get-Date -Format G): `t`tBuilding table range");
 		$WordRange = $Script:Doc.Application.Selection.Range;
 		$WordRange.Text = $WordRangeString.ToString();
 
@@ -2072,7 +2132,7 @@ Function AddWordTable
 
 		## Invoke ConvertToTable method - with named arguments - to convert Word range to a table
 		## See http://msdn.microsoft.com/en-us/library/office/aa171893(v=office.11).aspx
-		Write-Debug ("$(Get-Date): `t`tConverting range to table");
+		Write-Debug ("$(Get-Date -Format G): `t`tConverting range to table");
 		## Store the table reference just in case we need to set alternate row coloring
 		$WordTable = $WordRange.GetType().InvokeMember(
 			"ConvertToTable",                               # Method name
@@ -2088,7 +2148,7 @@ Function AddWordTable
 		## Implement grid lines (will wipe out any existing formatting
 		If($Format -lt 0) 
 		{
-			Write-Debug ("$(Get-Date): `t`tSetting table format");
+			Write-Debug ("$(Get-Date -Format G): `t`tSetting table format");
 			$WordTable.Style = $Format;
 		}
 
@@ -2140,7 +2200,7 @@ Function AddWordTable
 	This example sets all text to bold that is contained within the $TableReference
 	Word table, using an array of hashtables. Each hashtable contain a pair of co-
 	ordinates that is used to select the required cells. Note: the hashtable must
-	contain the .Row and .Column key names. For example:
+	contain the.Row and.Column key names. For example:
 	@ { Row = 7; Column = 3 } to set the cell at row 7 and column 3 to bold.
 .EXAMPLE
 	$RowCollection = $Table.Rows.First.Cells
@@ -2148,7 +2208,7 @@ Function AddWordTable
 
 	This example sets all text to size 8 and bold for all cells that are contained
 	within the first row of the table.
-	Note: the $Table.Rows.First.Cells returns a collection of Word COM cells objects
+	Note: the $Table.Rows.First.Cells Returns a collection of Word COM cells objects
 	that are in the first table row.
 .EXAMPLE
 	$ColumnCollection = $Table.Columns.Item(2).Cells
@@ -2156,14 +2216,14 @@ Function AddWordTable
 
 	This example sets the background (shading) of all cells in the table's second
 	column to red.
-	Note: the $Table.Columns.Item(2).Cells returns a collection of Word COM cells objects
+	Note: the $Table.Columns.Item(2).Cells Returns a collection of Word COM cells objects
 	that are in the table's second column.
 .EXAMPLE
 	SetWordCellFormat -Cell $Table.Cell(17,3) -Font "Tahoma" -Color 16711680
 
 	This example sets the font to Tahoma and the text color to blue for the cell located
 	in the table's 17th row and 3rd column.
-	Note: the $Table.Cell(17,3) returns a single Word COM cells object.
+	Note: the $Table.Cell(17,3) Returns a single Word COM cells object.
 #>
 
 Function SetWordCellFormat 
@@ -2171,21 +2231,21 @@ Function SetWordCellFormat
 	[CmdletBinding(DefaultParameterSetName='Collection')]
 	Param (
 		# Word COM object cell collection reference
-		[Parameter(Mandatory=$true, ValueFromPipeline=$true, ParameterSetName='Collection', Position=0)] [ValidateNotNullOrEmpty()] $Collection,
+		[Parameter(Mandatory=$True, ValueFromPipeline=$True, ParameterSetName='Collection', Position=0)] [ValidateNotNullOrEmpty()] $Collection,
 		# Word COM object individual cell reference
-		[Parameter(Mandatory=$true, ParameterSetName='Cell', Position=0)] [ValidateNotNullOrEmpty()] $Cell,
+		[Parameter(Mandatory=$True, ParameterSetName='Cell', Position=0)] [ValidateNotNullOrEmpty()] $Cell,
 		# Hashtable of cell co-ordinates
-		[Parameter(Mandatory=$true, ParameterSetName='Hashtable', Position=0)] [ValidateNotNullOrEmpty()] [System.Collections.Hashtable[]] $Coordinates,
+		[Parameter(Mandatory=$True, ParameterSetName='Hashtable', Position=0)] [ValidateNotNullOrEmpty()] [System.Collections.Hashtable[]] $Coordinates,
 		# Word COM object table reference
-		[Parameter(Mandatory=$true, ParameterSetName='Hashtable', Position=1)] [ValidateNotNullOrEmpty()] $Table,
+		[Parameter(Mandatory=$True, ParameterSetName='Hashtable', Position=1)] [ValidateNotNullOrEmpty()] $Table,
 		# Font name
-		[Parameter()] [AllowNull()] [string] $Font = $null,
+		[Parameter()] [AllowNull()] [string] $Font = $Null,
 		# Font color
-		[Parameter()] [AllowNull()] $Color = $null,
+		[Parameter()] [AllowNull()] $Color = $Null,
 		# Font size
 		[Parameter()] [ValidateNotNullOrEmpty()] [int] $Size = 0,
 		# Cell background color
-		[Parameter()] [AllowNull()] [int]$BackgroundColor = $null,
+		[Parameter()] [AllowNull()] [int]$BackgroundColor = $Null,
 		# Force solid background color
 		[Switch] $Solid,
 		[Switch] $Bold,
@@ -2205,25 +2265,25 @@ Function SetWordCellFormat
 			'Collection' {
 				ForEach($Cell in $Collection) 
 				{
-					If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
-					If($Bold) { $Cell.Range.Font.Bold = $true; }
-					If($Italic) { $Cell.Range.Font.Italic = $true; }
+					If($Null -ne $BackgroundColor) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
+					If($Bold) { $Cell.Range.Font.Bold = $True; }
+					If($Italic) { $Cell.Range.Font.Italic = $True; }
 					If($Underline) { $Cell.Range.Font.Underline = 1; }
-					If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-					If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
+					If($Null -ne $Font) { $Cell.Range.Font.Name = $Font; }
+					If($Null -ne $Color) { $Cell.Range.Font.Color = $Color; }
 					If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
 					If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
-				} # end foreach
+				} # end ForEach
 			} # end Collection
 			'Cell' 
 			{
-				If($Bold) { $Cell.Range.Font.Bold = $true; }
-				If($Italic) { $Cell.Range.Font.Italic = $true; }
+				If($Bold) { $Cell.Range.Font.Bold = $True; }
+				If($Italic) { $Cell.Range.Font.Italic = $True; }
 				If($Underline) { $Cell.Range.Font.Underline = 1; }
-				If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-				If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
+				If($Null -ne $Font) { $Cell.Range.Font.Name = $Font; }
+				If($Null -ne $Color) { $Cell.Range.Font.Color = $Color; }
 				If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
-				If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
+				If($Null -ne $BackgroundColor) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
 				If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
 			} # end Cell
 			'Hashtable' 
@@ -2231,17 +2291,17 @@ Function SetWordCellFormat
 				ForEach($Coordinate in $Coordinates) 
 				{
 					$Cell = $Table.Cell($Coordinate.Row, $Coordinate.Column);
-					If($Bold) { $Cell.Range.Font.Bold = $true; }
-					If($Italic) { $Cell.Range.Font.Italic = $true; }
+					If($Bold) { $Cell.Range.Font.Bold = $True; }
+					If($Italic) { $Cell.Range.Font.Italic = $True; }
 					If($Underline) { $Cell.Range.Font.Underline = 1; }
-					If($Font -ne $null) { $Cell.Range.Font.Name = $Font; }
-					If($Color -ne $null) { $Cell.Range.Font.Color = $Color; }
+					If($Null -ne $Font) { $Cell.Range.Font.Name = $Font; }
+					If($Null -ne $Color) { $Cell.Range.Font.Color = $Color; }
 					If($Size -ne 0) { $Cell.Range.Font.Size = $Size; }
-					If($BackgroundColor -ne $null) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
+					If($Null -ne $BackgroundColor) { $Cell.Shading.BackgroundPatternColor = $BackgroundColor; }
 					If($Solid) { $Cell.Shading.Texture = 0; } ## wdTextureNone
 				}
 			} # end Hashtable
-		} # end switch
+		} # end Switch
 	} # end process
 }
 
@@ -2274,11 +2334,11 @@ Function SetWordTableAlternateRowColor
 	[CmdletBinding()]
 	Param (
 		# Word COM object table reference
-		[Parameter(Mandatory=$true, ValueFromPipeline=$true, Position=0)] [ValidateNotNullOrEmpty()] $Table,
+		[Parameter(Mandatory=$True, ValueFromPipeline=$True, Position=0)] [ValidateNotNullOrEmpty()] $Table,
 		# Alternate row background color
-		[Parameter(Mandatory=$true, Position=1)] [ValidateNotNull()] [int] $BackgroundColor,
+		[Parameter(Mandatory=$True, Position=1)] [ValidateNotNull()] [int] $BackgroundColor,
 		# Alternate row starting seed
-		[Parameter(ValueFromPipelineByPropertyName=$true, Position=2)] [ValidateSet('First','Second')] [string] $Seed = 'First'
+		[Parameter(ValueFromPipelineByPropertyName=$True, Position=2)] [ValidateSet('First','Second')] [string] $Seed = 'First'
 	)
 
 	Process 
@@ -2312,59 +2372,60 @@ Function SetWordTableAlternateRowColor
 #region general script functions
 Function ShowScriptOptions
 {
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): Add DateTime      : $($AddDateTime)"
+	Write-Verbose "$(Get-Date -Format G): "
+	Write-Verbose "$(Get-Date -Format G): "
+	Write-Verbose "$(Get-Date -Format G): Add DateTime      : $AddDateTime"
 	If($MSWORD -or $PDF)
 	{
-		Write-Verbose "$(Get-Date): Company Address : $CompanyAddress"
-		Write-Verbose "$(Get-Date): Company Email   : $CompanyEmail"
-		Write-Verbose "$(Get-Date): Company Fax     : $CompanyFax"
-		Write-Verbose "$(Get-Date): Company Name    : $Script:CoName"
-		Write-Verbose "$(Get-Date): Company Phone   : $CompanyPhone"
-		Write-Verbose "$(Get-Date): Cover Page      : $CoverPage"
+		Write-Verbose "$(Get-Date -Format G): Company Address   : $CompanyAddress"
+		Write-Verbose "$(Get-Date -Format G): Company Email     : $CompanyEmail"
+		Write-Verbose "$(Get-Date -Format G): Company Fax       : $CompanyFax"
+		Write-Verbose "$(Get-Date -Format G): Company Name      : $Script:CoName"
+		Write-Verbose "$(Get-Date -Format G): Company Phone     : $CompanyPhone"
+		Write-Verbose "$(Get-Date -Format G): Cover Page        : $CoverPage"
 	}
-	Write-Verbose "$(Get-Date): Dev               : $($Dev)"
+	Write-Verbose "$(Get-Date -Format G): Dev               : $Dev"
 	If($Dev)
 	{
-		Write-Verbose "$(Get-Date): DevErrorFile      : $($Script:DevErrorFile)"
+		Write-Verbose "$(Get-Date -Format G): DevErrorFile      : $Script:DevErrorFile"
 	}
-	Write-Verbose "$(Get-Date): Filename1         : $($Script:FileName1)"
+	Write-Verbose "$(Get-Date -Format G): Filename1         : $Script:FileName1"
 	If($PDF)
 	{
-		Write-Verbose "$(Get-Date): Filename2         : $($Script:FileName2)"
+		Write-Verbose "$(Get-Date -Format G): Filename2         : $Script:FileName2"
 	}
-	Write-Verbose "$(Get-Date): Folder            : $($Folder)"
-	Write-Verbose "$(Get-Date): From              : $($From)"
-	Write-Verbose "$(Get-Date): ListAllInformation: $($ListAllInformation)"
-	Write-Verbose "$(Get-Date): Log               : $($Log)"
-	Write-Verbose "$(Get-Date): Save As PDF       : $($PDF)"
-	Write-Verbose "$(Get-Date): Save As WORD      : $($MSWORD)"
-	Write-Verbose "$(Get-Date): ScriptInfo        : $($ScriptInfo)"
-	Write-Verbose "$(Get-Date): SMSProvider       : $($SMSProvider)"
-	Write-Verbose "$(Get-Date): Smtp Port         : $($SmtpPort)"
-	Write-Verbose "$(Get-Date): Smtp Server       : $($SmtpServer)"
-	Write-Verbose "$(Get-Date): Software          : $($Software)"
-	Write-Verbose "$(Get-Date): To                : $($To)"
-	Write-Verbose "$(Get-Date): Use SSL           : $($UseSSL)"
+	Write-Verbose "$(Get-Date -Format G): Folder            : $Folder"
+	Write-Verbose "$(Get-Date -Format G): From              : $From"
+	Write-Verbose "$(Get-Date -Format G): ListAllInformation: $ListAllInformation"
+	Write-Verbose "$(Get-Date -Format G): Log               : $Log"
+	Write-Verbose "$(Get-Date -Format G): Report Footer     : $ReportFooter"
+	Write-Verbose "$(Get-Date -Format G): Save As PDF       : $PDF"
+	Write-Verbose "$(Get-Date -Format G): Save As WORD      : $MSWORD"
+	Write-Verbose "$(Get-Date -Format G): ScriptInfo        : $ScriptInfo"
+	Write-Verbose "$(Get-Date -Format G): SMSProvider       : $SMSProvider"
+	Write-Verbose "$(Get-Date -Format G): Smtp Port         : $SmtpPort"
+	Write-Verbose "$(Get-Date -Format G): Smtp Server       : $SmtpServer"
+	Write-Verbose "$(Get-Date -Format G): Software          : $Software"
+	Write-Verbose "$(Get-Date -Format G): To                : $To"
+	Write-Verbose "$(Get-Date -Format G): Use SSL           : $UseSSL"
 	If($MSWORD -or $PDF)
 	{
-		Write-Verbose "$(Get-Date): User Name         : $($UserName)"
+		Write-Verbose "$(Get-Date -Format G): User Name         : $UserName"
 	}
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): OS Detected       : $($RunningOS)"
-	Write-Verbose "$(Get-Date): PSUICulture       : $($PSUICulture)"
-	Write-Verbose "$(Get-Date): PSCulture         : $($PSCulture)"
+	Write-Verbose "$(Get-Date -Format G): "
+	Write-Verbose "$(Get-Date -Format G): OS Detected       : $RunningOS"
+	Write-Verbose "$(Get-Date -Format G): PSUICulture       : $PSUICulture"
+	Write-Verbose "$(Get-Date -Format G): PSCulture         : $PSCulture"
 	If($MSWORD -or $PDF)
 	{
-		Write-Verbose "$(Get-Date): Word version      : $($Script:WordProduct)"
-		Write-Verbose "$(Get-Date): Word language     : $($Script:WordLanguageValue)"
+		Write-Verbose "$(Get-Date -Format G): Word version      : $Script:WordProduct"
+		Write-Verbose "$(Get-Date -Format G): Word language     : $Script:WordLanguageValue"
 	}
-	Write-Verbose "$(Get-Date): PoSH version      : $($Host.Version)"
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): Script start      : $($Script:StartTime)"
-	Write-Verbose "$(Get-Date): "
-	Write-Verbose "$(Get-Date): "
+	Write-Verbose "$(Get-Date -Format G): PoSH version      : $($Host.Version)"
+	Write-Verbose "$(Get-Date -Format G): "
+	Write-Verbose "$(Get-Date -Format G): Script start      : $Script:ScriptStartTime"
+	Write-Verbose "$(Get-Date -Format G): "
+	Write-Verbose "$(Get-Date -Format G): "
 }
 
 Function validStateProp( [object] $object, [string] $topLevel, [string] $secondLevel )
@@ -2390,7 +2451,7 @@ Function SaveandCloseDocumentandShutdownWord
 	$Script:Word.Options.CheckGrammarAsYouType = $Script:CurrentGrammarOption
 	$Script:Word.Options.CheckSpellingAsYouType = $Script:CurrentSpellingOption
 
-	Write-Verbose "$(Get-Date): Save and Close document and Shutdown Word"
+	Write-Verbose "$(Get-Date -Format G): Save and Close document and Shutdown Word"
 	If($Script:WordVersion -eq $wdWord2010)
 	{
 		#the $saveFormat below passes StrictMode 2
@@ -2399,11 +2460,11 @@ Function SaveandCloseDocumentandShutdownWord
 		#http://msdn.microsoft.com/en-us/library/microsoft.office.interop.word.wdsaveformat(v=office.14).aspx
 		If($PDF)
 		{
-			Write-Verbose "$(Get-Date): Saving as DOCX file first before saving to PDF"
+			Write-Verbose "$(Get-Date -Format G): Saving as DOCX file first before saving to PDF"
 		}
 		Else
 		{
-			Write-Verbose "$(Get-Date): Saving DOCX file"
+			Write-Verbose "$(Get-Date -Format G): Saving DOCX file"
 		}
 		If($AddDateTime)
 		{
@@ -2413,12 +2474,12 @@ Function SaveandCloseDocumentandShutdownWord
 				$Script:FileName2 += "_$(Get-Date -f yyyy-MM-dd_HHmm).pdf"
 			}
 		}
-		Write-Verbose "$(Get-Date): Running $($Script:WordProduct) and detected operating system $($Script:RunningOS)"
+		Write-Verbose "$(Get-Date -Format G): Running $($Script:WordProduct) and detected operating system $($Script:RunningOS)"
 		$saveFormat = [Enum]::Parse([Microsoft.Office.Interop.Word.WdSaveFormat], "wdFormatDocumentDefault")
 		$Script:Doc.SaveAs([REF]$Script:FileName1, [ref]$SaveFormat)
 		If($PDF)
 		{
-			Write-Verbose "$(Get-Date): Now saving as PDF"
+			Write-Verbose "$(Get-Date -Format G): Now saving as PDF"
 			$saveFormat = [Enum]::Parse([Microsoft.Office.Interop.Word.WdSaveFormat], "wdFormatPDF")
 			$Script:Doc.SaveAs([REF]$Script:FileName2, [ref]$saveFormat)
 		}
@@ -2427,11 +2488,11 @@ Function SaveandCloseDocumentandShutdownWord
 	{
 		If($PDF)
 		{
-			Write-Verbose "$(Get-Date): Saving as DOCX file first before saving to PDF"
+			Write-Verbose "$(Get-Date -Format G): Saving as DOCX file first before saving to PDF"
 		}
 		Else
 		{
-			Write-Verbose "$(Get-Date): Saving DOCX file"
+			Write-Verbose "$(Get-Date -Format G): Saving DOCX file"
 		}
 		If($AddDateTime)
 		{
@@ -2441,16 +2502,16 @@ Function SaveandCloseDocumentandShutdownWord
 				$Script:FileName2 += "_$(Get-Date -f yyyy-MM-dd_HHmm).pdf"
 			}
 		}
-		Write-Verbose "$(Get-Date): Running $($Script:WordProduct) and detected operating system $($Script:RunningOS)"
+		Write-Verbose "$(Get-Date -Format G): Running $($Script:WordProduct) and detected operating system $($Script:RunningOS)"
 		$Script:Doc.SaveAs2([REF]$Script:FileName1, [ref]$wdFormatDocumentDefault)
 		If($PDF)
 		{
-			Write-Verbose "$(Get-Date): Now saving as PDF"
+			Write-Verbose "$(Get-Date -Format G): Now saving as PDF"
 			$Script:Doc.SaveAs([REF]$Script:FileName2, [ref]$wdFormatPDF)
 		}
 	}
 
-	Write-Verbose "$(Get-Date): Closing Word"
+	Write-Verbose "$(Get-Date -Format G): Closing Word"
 	$Script:Doc.Close()
 	$Script:Word.Quit()
 	If($PDF)
@@ -2461,7 +2522,7 @@ Function SaveandCloseDocumentandShutdownWord
 			$cnt++
 			If($cnt -gt 1)
 			{
-				Write-Verbose "$(Get-Date): Waiting another 10 seconds to allow Word to fully close (try # $($cnt))"
+				Write-Verbose "$(Get-Date -Format G): Waiting another 10 seconds to allow Word to fully close (try # $($cnt))"
 				Start-Sleep -Seconds 10
 				$Script:Word.Quit()
 				If($cnt -gt 2)
@@ -2475,16 +2536,16 @@ Function SaveandCloseDocumentandShutdownWord
 					$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
 					If($wordprocess -gt 0)
 					{
-						Write-Verbose "$(Get-Date): Attempting to stop WinWord process # $($wordprocess)"
+						Write-Verbose "$(Get-Date -Format G): Attempting to stop WinWord process # $($wordprocess)"
 						Stop-Process $wordprocess -EA 0
 					}
 				}
 			}
-			Write-Verbose "$(Get-Date): Attempting to delete $($Script:FileName1) since only $($Script:FileName2) is needed (try # $($cnt))"
+			Write-Verbose "$(Get-Date -Format G): Attempting to delete $($Script:FileName1) since only $($Script:FileName2) is needed (try # $($cnt))"
 			Remove-Item $Script:FileName1 -EA 0 4>$Null
 		}
 	}
-	Write-Verbose "$(Get-Date): System Cleanup"
+	Write-Verbose "$(Get-Date -Format G): System Cleanup"
 	[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
 	If(Test-Path variable:global:word)
 	{
@@ -2504,7 +2565,7 @@ Function SaveandCloseDocumentandShutdownWord
 	$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
 	If($null -ne $wordprocess -and $wordprocess -gt 0)
 	{
-		Write-Verbose "$(Get-Date): WinWord process is still running. Attempting to stop WinWord process # $($wordprocess)"
+		Write-Verbose "$(Get-Date -Format G): WinWord process is still running. Attempting to stop WinWord process # $($wordprocess)"
 		Stop-Process $wordprocess -EA 0
 	}
 }
@@ -2540,6 +2601,48 @@ Function SetFileName1andFileName2
 	}
 }
 
+Function OutputReportFooter
+{
+	<#
+	Report Footer
+		Report information:
+			Created with: <Script Name> - Release Date: <Script Release Date>
+			Script version: <Script Version>
+			Started on <Date Time in Local Format>
+			Elapsed time: nn days, nn hours, nn minutes, nn.nn seconds
+			Ran from domain <Domain Name> by user <Username>
+			Ran from the folder <Folder Name>
+
+	Script Name and Script Release date are script-specific variables.
+	Script version is a script variable.
+	Start Date Time in Local Format is a script variable.
+	Domain Name is $env:USERDNSDOMAIN.
+	Username is $env:USERNAME.
+	Folder Name is a script variable.
+	#>
+
+	$runtime = $(Get-Date) - $Script:ScriptStartTime
+	$Str = [string]::format("{0} days, {1} hours, {2} minutes, {3}.{4} seconds",
+		$runtime.Days,
+		$runtime.Hours,
+		$runtime.Minutes,
+		$runtime.Seconds,
+		$runtime.Milliseconds)
+
+	If($MSWORD -or $PDF)
+	{
+		$Script:selection.InsertNewPage()
+		WriteWordLine 1 0 "Report Footer"
+		WriteWordLine 2 0 "Report Information:"
+		WriteWordLine 0 1 "Created with: $Script:ScriptName - Release Date: $Script:ReleaseDate"
+		WriteWordLine 0 1 "Script version: $Script:MyVersion"
+		WriteWordLine 0 1 "Started on $Script:ScriptStartTime"
+		WriteWordLine 0 1 "Elapsed time: $Str"
+		WriteWordLine 0 1 "Ran from domain $env:USERDNSDOMAIN by user $env:USERNAME"
+		WriteWordLine 0 1 "Ran from the folder $Script:pwdpath"
+	}
+}
+
 Function ProcessDocumentOutput
 {
 	If($MSWORD -or $PDF)
@@ -2553,8 +2656,8 @@ Function ProcessDocumentOutput
 	{
 		If(Test-Path "$($Script:FileName2)")
 		{
-			Write-Verbose "$(Get-Date): $($Script:FileName2) is ready for use"
-			Write-Verbose "$(Get-Date): "
+			Write-Verbose "$(Get-Date -Format G): $($Script:FileName2) is ready for use"
+			Write-Verbose "$(Get-Date -Format G): "
 			$GotFile = $True
 		}
 		Else
@@ -2567,8 +2670,8 @@ Function ProcessDocumentOutput
 	{
 		If(Test-Path "$($Script:FileName1)")
 		{
-			Write-Verbose "$(Get-Date): $($Script:FileName1) is ready for use"
-			Write-Verbose "$(Get-Date): "
+			Write-Verbose "$(Get-Date -Format G): $($Script:FileName1) is ready for use"
+			Write-Verbose "$(Get-Date -Format G): "
 			$GotFile = $True
 		}
 		Else
@@ -2598,7 +2701,7 @@ Function AbortScript
 	If($MSWord -or $PDF)
 	{
 		$Script:Word.quit()
-		Write-Verbose "$(Get-Date): System Cleanup"
+		Write-Verbose "$(Get-Date -Format G): System Cleanup"
 		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
 		If(Test-Path variable:global:word)
 		{
@@ -2607,7 +2710,7 @@ Function AbortScript
 	}
 	[gc]::collect() 
 	[gc]::WaitForPendingFinalizers()
-	Write-Verbose "$(Get-Date): Script has been aborted"
+	Write-Verbose "$(Get-Date -Format G): Script has been aborted"
 	$ErrorActionPreference = $SaveEAPreference
 	Exit
 }
@@ -2616,8 +2719,7 @@ Function AbortScript
 #region script setup function
 Function ProcessScriptSetup
 {
-	$script:startTime = Get-Date
-
+	$Script:ScriptStartTime = Get-Date
 }
 #endregion
 
@@ -2625,7 +2727,7 @@ Function ProcessScriptSetup
 Function SendEmail
 {
 	Param([array]$Attachments)
-	Write-Verbose "$(Get-Date): Prepare to email"
+	Write-Verbose "$(Get-Date -Format G): Prepare to email"
 
 	$emailAttachment = $Attachments
 	$emailSubject = $Script:Title
@@ -2665,13 +2767,13 @@ $Script:Title is attached.
 		
 		If($?)
 		{
-			Write-Verbose "$(Get-Date): Email successfully sent using anonymous credentials"
+			Write-Verbose "$(Get-Date -Format G): Email successfully sent using anonymous credentials"
 		}
 		ElseIf(!$?)
 		{
 			$e = $error[0]
 
-			Write-Verbose "$(Get-Date): Email was not sent:"
+			Write-Verbose "$(Get-Date -Format G): Email was not sent:"
 			Write-Warning "$(Get-Date): Exception: $e.Exception" 
 		}
 	}
@@ -2679,7 +2781,7 @@ $Script:Title is attached.
 	{
 		If($UseSSL)
 		{
-			Write-Verbose "$(Get-Date): Trying to send email using current user's credentials with SSL"
+			Write-Verbose "$(Get-Date -Format G): Trying to send email using current user's credentials with SSL"
 			Send-MailMessage -Attachments $emailAttachment -Body $emailBody -BodyAsHtml -From $From `
 			-Port $SmtpPort -SmtpServer $SmtpServer -Subject $emailSubject -To $To `
 			-UseSSL *>$Null
@@ -2699,7 +2801,7 @@ $Script:Title is attached.
 			If($null -ne $e.Exception -and $e.Exception.ToString().Contains("5.7"))
 			{
 				#The server response was: 5.7.xx SMTP; Client was not authenticated to send anonymous mail during MAIL FROM
-				Write-Verbose "$(Get-Date): Current user's credentials failed. Ask for usable credentials."
+				Write-Verbose "$(Get-Date -Format G): Current user's credentials failed. Ask for usable credentials."
 
 				If($Dev)
 				{
@@ -2725,19 +2827,19 @@ $Script:Title is attached.
 
 				If($?)
 				{
-					Write-Verbose "$(Get-Date): Email successfully sent using new credentials"
+					Write-Verbose "$(Get-Date -Format G): Email successfully sent using new credentials"
 				}
 				ElseIf(!$?)
 				{
 					$e = $error[0]
 
-					Write-Verbose "$(Get-Date): Email was not sent:"
+					Write-Verbose "$(Get-Date -Format G): Email was not sent:"
 					Write-Warning "$(Get-Date): Exception: $e.Exception" 
 				}
 			}
 			Else
 			{
-				Write-Verbose "$(Get-Date): Email was not sent:"
+				Write-Verbose "$(Get-Date -Format G): Email was not sent:"
 				Write-Warning "$(Get-Date): Exception: $e.Exception" 
 			}
 		}
@@ -2938,7 +3040,7 @@ $SiteCode = Get-SiteCode -EA 0
 If ($? -and $Null -ne $SiteCode)
 {
 
-	Write-Verbose "$(Get-Date): Start writing report data"
+	Write-Verbose "$(Get-Date -Format G): Start writing report data"
 
 	$LocationBeforeExecution = Get-Location
 
@@ -2947,8 +3049,9 @@ If ($? -and $Null -ne $SiteCode)
 	#Import the CM12 Powershell cmdlets
 	If(-not (Test-Path -Path $SiteCode))
 	{
-		Write-Verbose "$(Get-Date):   CM12 module has not been imported yet, will import it now."
-		Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
+		Write-Verbose "$(Get-Date -Format G):   CM12 module has not been imported yet, will import it now."
+		#Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') | Out-Null
+		Import-Module ($env:SMS_ADMIN_UI_PATH.Substring(0,$env:SMS_ADMIN_UI_PATH.Length – 5) + '\ConfigurationManager.psd1') 4>$Null
 	}
 	#CM12 cmdlets need to be run from the CM12 drive
 	Set-Location "$($SiteCode):" | Out-Null
@@ -2986,13 +3089,13 @@ Else
 #### Site Configuration
 
 WriteWordLine 1 0 'Summary of all Sites in this Hierarchy'
-Write-Verbose "$(Get-Date):   Getting Site Information"
-$CMSites = Get-CMSite -EA 0
+Write-Verbose "$(Get-Date -Format G):   Getting Site Information"
+$CMSites = Get-CMSite -EA 0 4>$Null
 
 #V2.33 change
 If($? -and $Null -ne $CMSites)
 {
-	Write-Verbose "$(Get-Date):   Successfully retrieved Site Information"
+	Write-Verbose "$(Get-Date -Format G):   Successfully retrieved Site Information"
 	$CAS                    = $CMSites | Where-Object {$_.Type -eq 4}
 	$ChildPrimarySites      = $CMSites | Where-Object {$_.Type -eq 3}
 	$StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
@@ -3045,7 +3148,7 @@ Else
 #region Child Primary Sites
 If(-not [string]::IsNullOrEmpty($ChildPrimarySites))
 {
-	Write-Verbose "$(Get-Date):   Enumerating all child Primary Site."
+	Write-Verbose "$(Get-Date -Format G):   Enumerating all child Primary Site."
 	WriteWordLine 0 1 'The following child Primary Sites are installed:'
 	$StandAlonePrimarySite = @{'Site Name' = $ChildPrimarySites.SiteName; `
 								'Site Code' = $ChildPrimarySites.SiteCode; `
@@ -3072,7 +3175,7 @@ If(-not [string]::IsNullOrEmpty($ChildPrimarySites))
 #region Standalone Primary
 If(-not [string]::IsNullOrEmpty($StandAlonePrimarySite))
 {
-	Write-Verbose "$(Get-Date):   Enumerating a standalone Primary Site."
+	Write-Verbose "$(Get-Date -Format G):   Enumerating a standalone Primary Site."
 	WriteWordLine 0 0 'The following Primary Site is installed:'
 	$SiteCULevel = (Invoke-Command -ComputerName $(Get-CMSiteRole -RoleName 'SMS Site Server').NALPath.tostring().split('\\')[2] `
 	-ScriptBlock {Get-ItemProperty `
@@ -3106,7 +3209,7 @@ If(-not [string]::IsNullOrEmpty($StandAlonePrimarySite))
 #region Secondary Sites
 If(-not [string]::IsNullOrEmpty($SecondarySites))
 {
-	Write-Verbose "$(Get-Date):   Enumerating all secondary sites."
+	Write-Verbose "$(Get-Date -Format G):   Enumerating all secondary sites."
 	WriteWordLine 0 0 'The following Secondary Sites are installed:'
 	$SecondarySites = @{'Site Name' = $SecondarySites.SiteName; `
 						'Site Code' = $SecondarySites.SiteCode; `
@@ -3134,7 +3237,7 @@ If(-not [string]::IsNullOrEmpty($SecondarySites))
 
 ForEach($CMSite in $CMSites)
 {  
-	Write-Verbose "$(Get-Date):   Checking each site's configuration."
+	Write-Verbose "$(Get-Date -Format G):   Checking each site's configuration."
 	WriteWordLine 1 0 "Configuration Summary for Site $($CMSite.SiteCode)"
 	WriteWordLine 0 0 ''   
 
@@ -3162,7 +3265,7 @@ ForEach($CMSite in $CMSites)
 	$Table = $Null
 
 	$SiteMaintenanceTaskWordTable = @()
-	$SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode
+	$SiteMaintenanceTasks = Get-CMSiteMaintenanceTask -SiteCode $CMSite.SiteCode -EA 0 4>$Null
 	WriteWordLine 2 0 "Site Maintenance Tasks for Site $($CMSite.SiteCode)"
 
 	ForEach($SiteMaintenanceTask in $SiteMaintenanceTasks) {
@@ -3184,14 +3287,14 @@ ForEach($CMSite in $CMSites)
 	#WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
 	#ForEach($CMManagementPoint in $CMManagementPoints)
 	#{
-	#	Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+	#	Write-Verbose "$(Get-Date -Format G):   Management Point: $($CMManagementPoint)"
 	#	$CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
 	#	WriteWordLine 0 0 "$($CMMPServerName)"
 	#}
 
 	WriteWordLine 2 0 "Summary of Management Points for Site $($CMSite.SiteCode)"
-	Write-Verbose "$(Get-Date):   Retrieving Management Points"
-	$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode -EA 0
+	Write-Verbose "$(Get-Date -Format G):   Retrieving Management Points"
+	$CMManagementPoints = Get-CMManagementPoint -SiteCode $CMSite.SiteCode -EA 0 4>$Null
 	
 	If($? -and $Null -ne $CMManagementPoints)
 	{
@@ -3205,16 +3308,16 @@ ForEach($CMSite in $CMSites)
 			$MPCount = 1
 		}
 		
-		Write-Verbose "$(Get-Date):   $MPCount Management Points were found"
+		Write-Verbose "$(Get-Date -Format G):   $MPCount Management Points were found"
 		$CMMPServerName = $Null
 		
 		ForEach($CMManagementPoint in $CMManagementPoints)
 		{
-			Write-Verbose "$(Get-Date):   Management Point: $($CMManagementPoint)"
+			Write-Verbose "$(Get-Date -Format G):   Management Point: $($CMManagementPoint)"
 			If(($Null -ne $CMManagementPoint.NetworkOSPath.Split('\\')[2]) -and ($Null -ne $CMMPServerName))
 			{
 				$CMMPServerName = $CMManagementPoint.NetworkOSPath.Split('\\')[2]
-				Write-Verbose "$(Get-Date):   CMMPServerName has been set to $CMMPServerName"
+				Write-Verbose "$(Get-Date -Format G):   CMMPServerName has been set to $CMMPServerName"
 				WriteWordLine 0 0 "$($CMMPServerName)"
 				#As soon as the variable is set, we are done with the loop
 				Break
@@ -3223,28 +3326,28 @@ ForEach($CMSite in $CMSites)
 	}
 	ElseIf($? -and $Null -eq $CMManagementPoints)
 	{
-		Write-Verbose "$(Get-Date):   No Management Points were found"
+		Write-Verbose "$(Get-Date -Format G):   No Management Points were found"
 		#no error happened but nothing was found
 		#set the variable $CMMPServerName to $SMSProvider
 		$CMMPServerName = $SMSProvider
 	}
 	Else
 	{
-		Write-Verbose "$(Get-Date):   An error happened while looking for Management Points"
+		Write-Verbose "$(Get-Date -Format G):   An error happened while looking for Management Points"
 		#some error happened
 		#set the variable $CMMPServerName to $SMSProvider
 		$CMMPServerName = $SMSProvider
 	}
-	Write-Verbose "$(Get-Date):   Completed Management Points"
+	Write-Verbose "$(Get-Date -Format G):   Completed Management Points"
 	#end of 2.33 change
 	
 	WriteWordLine 2 0 "Summary of Distribution Points for Site $($CMSite.SiteCode)"
-	$CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode
+	$CMDistributionPoints = Get-CMDistributionPoint -SiteCode $CMSite.SiteCode -EA 0 4>$Null
 
 	ForEach($CMDistributionPoint in $CMDistributionPoints)
 	{
 		$CMDPServerName = $CMDistributionPoint.NetworkOSPath.Split('\\')[2]
-		Write-Verbose "$(Get-Date):   Found DP: $($CMDPServerName)"
+		Write-Verbose "$(Get-Date -Format G):   Found DP: $($CMDPServerName)"
 		WriteWordLine 0 1 "$($CMDPServerName)" -boldface $true
 		Write-Verbose "Trying to ping $($CMDPServerName)"
 		$PingResult = Test-NetConnection -ComputerName $CMDPServerName
@@ -3334,7 +3437,7 @@ ForEach($CMSite in $CMSites)
 		}
 	}
 	#enumerating Software Update Points
-	Write-Verbose "$(Get-Date):   Enumerating all Software Update Points"
+	Write-Verbose "$(Get-Date -Format G):   Enumerating all Software Update Points"
 	WriteWordLine 2 0 "Summary of Software Update Point Servers for Site $($CMSite.SiteCode)"
 	$CMSUPs = Get-WmiObject -Class sms_sci_sysresuse `
 	-Namespace root\sms\site_$($CMSite.SiteCode) `
@@ -3353,7 +3456,7 @@ ForEach($CMSite in $CMSites)
 		ForEach($CMSUP in $CMSUPs) {
 			$SUPHashTable = @();
 			$CMSUPServerName = $CMSUP.NetworkOSPath.split('\\')[2]
-			Write-Verbose "$(Get-Date):   Found SUP: $($CMSUPServerName)"
+			Write-Verbose "$(Get-Date -Format G):   Found SUP: $($CMSUPServerName)"
 			WriteWordLine 0 0 "$($CMSUPServerName)"
 			ForEach($SUPProp in $CMSUP.Props) {
 				$SUPHash = @{Value2 = $SUPProp.Value2; `
@@ -3389,10 +3492,10 @@ ForEach($CMSite in $CMSites)
 WriteWordLine 1 0 'Summary of Hierarchy Wide Configuration'
 
 #region enumerating Boundaries
-Write-Verbose "$(Get-Date): Enumerating all Site Boundaries"
+Write-Verbose "$(Get-Date -Format G): Enumerating all Site Boundaries"
 WriteWordLine 2 0 'Summary of Site Boundaries'
 
-$Boundaries = Get-CMBoundary
+$Boundaries = Get-CMBoundary -EA 0 4>$Null
 If(-not [string]::IsNullOrEmpty($Boundaries))
 {
 	$SubnetHashTable  = @();
@@ -3581,9 +3684,9 @@ WriteWordLine 0 0 ''
 #endregion enumerating Boundaries
 
 #region enumerating all Boundary Groups and their members
-Write-Verbose "$(Get-Date):   Enumerating all Boundary Groups and their members"
+Write-Verbose "$(Get-Date -Format G):   Enumerating all Boundary Groups and their members"
 
-$BoundaryGroups = Get-CMBoundaryGroup
+$BoundaryGroups = Get-CMBoundaryGroup -EA 0 4>$Null
 WriteWordLine 2 0 'Summary of Site Boundary Groups'
 
 $BoundaryGroupHashTable = @();
@@ -3634,32 +3737,31 @@ If(-not [string]::IsNullOrEmpty($BoundaryGroups))
 }
 Else
 {
-	WriteWordLine 0 1 'There are no Boundary Groups configured. It is mandatory to configure a `
-	Boundary Group in order for CM12 to work properly.'
+	WriteWordLine 0 1 'There are no Boundary Groups configured. It is mandatory to configure a Boundary Group in order for CM12 to work properly.'
 }
 
 #endregion enumerating all Boundary Groups and their members
 
 #region enumerating Client Policies
-Write-Verbose "$(Get-Date):   Enumerating all Client/Device Settings"
+Write-Verbose "$(Get-Date -Format G):   Enumerating all Client/Device Settings"
 WriteWordLine 2 0 'Summary of Custom Client Device Settings'
 
 $AllClientSettings = Get-CMClientSetting | Where-Object -FilterScript {$_.SettingsID -ne '0'}
 ForEach($ClientSetting in $AllClientSettings)
 {
-	WriteWordLine 0 1 "Client Settings Name: $($ClientSetting.Name)" -boldface $true
-	WriteWordLine 0 2 "Client Settings Description: $($ClientSetting.Description)"
-	WriteWordLine 0 2 "Client Settings ID: $($ClientSetting.SettingsID)"
-	WriteWordLine 0 2 "Client Settings Priority: $($ClientSetting.Priority)"
+	WriteWordLine 0 0 "Client Settings Name: $($ClientSetting.Name)" -boldface $true
+	WriteWordLine 0 1 "Client Settings Description: $($ClientSetting.Description)"
+	WriteWordLine 0 1 "Client Settings ID: $($ClientSetting.SettingsID)"
+	WriteWordLine 0 1 "Client Settings Priority: $($ClientSetting.Priority)"
 	If($ClientSetting.Type -eq '1')
 	{
-		WriteWordLine 0 2 'This is a custom client Device Setting.'
+		WriteWordLine 0 1 'This is a custom client Device Setting.'
 	}
 	Else
 	{
-		WriteWordLine 0 2 'This is a custom client User Setting.'
+		WriteWordLine 0 1 'This is a custom client User Setting.'
 	}
-	WriteWordLine 0 1 'Configurations'
+	WriteWordLine 0 0 'Configurations'
 	ForEach($AgentConfig in $ClientSetting.AgentConfigurations)
 	{
 		try
@@ -3668,51 +3770,43 @@ ForEach($ClientSetting in $AllClientSettings)
 			{
 				1
 					{
-						WriteWordLine 0 2 'Compliance Settings'
-						WriteWordLine 0 2 "Enable compliance evaluation on clients: $($AgentConfig.Enabled)"
-						WriteWordLine 0 2 "Enable user data and profiles: $($AgentConfig.EnableUserStateManagement)"
+						WriteWordLine 0 1 'Compliance Settings'
+						WriteWordLine 0 1 "Enable compliance evaluation on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 "Enable user data and profiles: $($AgentConfig.EnableUserStateManagement)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				2
 					{
-						WriteWordLine 0 2 'Software Inventory'
-						WriteWordLine 0 2 "Enable software inventory on clients: $($AgentConfig.Enabled)"
-						WriteWordLine 0 2 'Schedule software inventory and file collection: ' -nonewline
+						WriteWordLine 0 1 'Software Inventory'
+						WriteWordLine 0 1 "Enable software inventory on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 'Schedule software inventory and file collection: ' -nonewline
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective `
-							$($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective `
-							$($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective `
-							$($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) `
-												effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -3724,12 +3818,10 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
-						WriteWordLine 0 2 'Inventory reporting detail: ' -nonewline
+						WriteWordLine 0 1 'Inventory reporting detail: ' -nonewline
 						Switch ($AgentConfig.ReportOptions)
 						{
 							1 { WriteWordLine 0 0 'Product only' }
@@ -3737,22 +3829,22 @@ ForEach($ClientSetting in $AllClientSettings)
 							7 { WriteWordLine 0 0 'Full details' }
 						}
 
-						WriteWordLine 0 2 'Inventory these file types: '
+						WriteWordLine 0 1 'Inventory these file types: '
 						If($AgentConfig.InventoriableTypes)
 						{
-							WriteWordLine 0 3 "$($AgentConfig.InventoriableTypes)"
+							WriteWordLine 0 2 "$($AgentConfig.InventoriableTypes)"
 						}
 						If($AgentConfig.Path)
 						{                               
-							WriteWordLine 0 3 "$($AgentConfig.Path)"
+							WriteWordLine 0 2 "$($AgentConfig.Path)"
 						}
 						If(($AgentConfig.InventoriableTypes) -and ($AgentConfig.ExcludeWindirAndSubfolders -eq 'true'))
 						{
-							WriteWordLine 0 3 'Exclude WinDir and Subfolders'
+							WriteWordLine 0 2 'Exclude WinDir and Subfolders'
 						}
 						Else 
 						{
-							WriteWordLine 0 3 'Do not exclude WinDir and Subfolders'
+							WriteWordLine 0 2 'Do not exclude WinDir and Subfolders'
 						}
 
 						WriteWordLine 0 0 ''
@@ -3760,56 +3852,48 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				3
 					{
-						WriteWordLine 0 2 'Remote Tools'
-						WriteWordLine 0 2 'Enable Remote Control on clients: ' -nonewline
+						WriteWordLine 0 1 'Remote Tools'
+						WriteWordLine 0 1 'Enable Remote Control on clients: ' -nonewline
 						Switch ($AgentConfig.FirewallExceptionProfiles)
 						{
 							0 { WriteWordLine 0 0 'Disabled' }
 							8 { WriteWordLine 0 0 'Enabled: No Firewall Profile.' }
-							9 { WriteWordLine 0 2 'Enabled: Public.' }
-							10 { WriteWordLine 0 2 'Enabled: Private.' }
-							11 { WriteWordLine 0 2 'Enabled: Private, Public.' }
-							12 { WriteWordLine 0 2 'Enabled: Domain.' }
-							13 { WriteWordLine 0 2 'Enabled: Domain, Public.' }
-							14 { WriteWordLine 0 2 'Enabled: Domain, Private.' }
-							15 { WriteWordLine 0 2 'Enabled: Domain, Private, Public.' }
+							9 { WriteWordLine 0 1 'Enabled: Public.' }
+							10 { WriteWordLine 0 1 'Enabled: Private.' }
+							11 { WriteWordLine 0 1 'Enabled: Private, Public.' }
+							12 { WriteWordLine 0 1 'Enabled: Domain.' }
+							13 { WriteWordLine 0 1 'Enabled: Domain, Public.' }
+							14 { WriteWordLine 0 1 'Enabled: Domain, Private.' }
+							15 { WriteWordLine 0 1 'Enabled: Domain, Private, Public.' }
 						}
-						WriteWordLine 0 2 "Users can change policy or notification settings in Software Center: `
-						$($AgentConfig.AllowClientChange)"
-						WriteWordLine 0 2 "Allow Remote Control of an unattended computer: `
-						$($AgentConfig.AllowRemCtrlToUnattended)"
-						WriteWordLine 0 2 "Prompt user for Remote Control permission: `
-						$($AgentConfig.PermissionRequired)"
-						WriteWordLine 0 2 "Grant Remote Control permission to local Administrators group: `
-						$($AgentConfig.AllowLocalAdminToDoRemoteControl)"
-						WriteWordLine 0 2 'Access level allowed: ' -nonewline
+						WriteWordLine 0 1 "Users can change policy or notification settings in Software Center: $($AgentConfig.AllowClientChange)"
+						WriteWordLine 0 1 "Allow Remote Control of an unattended computer: $($AgentConfig.AllowRemCtrlToUnattended)"
+						WriteWordLine 0 1 "Prompt user for Remote Control permission: $($AgentConfig.PermissionRequired)"
+						WriteWordLine 0 1 "Grant Remote Control permission to local Administrators group: $($AgentConfig.AllowLocalAdminToDoRemoteControl)"
+						WriteWordLine 0 1 'Access level allowed: ' -nonewline
 						Switch ($AgentConfig.AccessLevel)
 						{
 							0 { WriteWordLine 0 0 'No access' }
 							1 { WriteWordLine 0 0 'View only' }
 							2 { WriteWordLine 0 0 'Full Control' }
 						}
-						WriteWordLine 0 2 'Permitted viewers of Remote Control and Remote Assistance:'
+						WriteWordLine 0 1 'Permitted viewers of Remote Control and Remote Assistance:'
 						ForEach($Viewer in $AgentConfig.PermittedViewers)
 						{
-							WriteWordLine 0 3 "$($Viewer)"
+							WriteWordLine 0 2 "$($Viewer)"
 						}
-						WriteWordLine 0 2 "Show session notification icon on taskbar: `
-						$($AgentConfig.RemCtrlTaskbarIcon)"
-						WriteWordLine 0 2 "Show session connection bar: `
-						$($AgentConfig.RemCtrlConnectionBar)"
-						WriteWordLine 0 2 'Play a sound on client: ' -nonewline
+						WriteWordLine 0 1 "Show session notification icon on taskbar: $($AgentConfig.RemCtrlTaskbarIcon)"
+						WriteWordLine 0 1 "Show session connection bar: $($AgentConfig.RemCtrlConnectionBar)"
+						WriteWordLine 0 1 'Play a sound on client: ' -nonewline
 						Switch ($AgentConfig.AudibleSignal)
 						{
 							0 { WriteWordLine 0 0 'None.' }
 							1 { WriteWordLine 0 0 'Beginning and end of session.' }
 							2 { WriteWordLine 0 0 'Repeatedly during session.' }
 						}
-						WriteWordLine 0 2 "Manage unsolicited Remote Assistance settings: `
-						$($AgentConfig.ManageRA)"
-						WriteWordLine 0 2 "Manage solicited Remote Assistance settings: `
-						$($AgentConfig.EnforceRAandTSSettings)"
-						WriteWordLine 0 2 'Level of access for Remote Assistance: ' -nonewline
+						WriteWordLine 0 1 "Manage unsolicited Remote Assistance settings: $($AgentConfig.ManageRA)"
+						WriteWordLine 0 1 "Manage solicited Remote Assistance settings: $($AgentConfig.EnforceRAandTSSettings)"
+						WriteWordLine 0 1 'Level of access for Remote Assistance: ' -nonewline
 						If(($AgentConfig.AllowRAUnsolicitedView -ne 'True') -and `
 						($AgentConfig.AllowRAUnsolicitedControl -ne 'True'))
 						{
@@ -3825,34 +3909,25 @@ ForEach($ClientSetting in $AllClientSettings)
 						{
 							WriteWordLine 0 0 'Full Control.'
 						}
-						WriteWordLine 0 2 "Manage Remote Desktop settings: $($AgentConfig.ManageTS)"
+						WriteWordLine 0 1 "Manage Remote Desktop settings: $($AgentConfig.ManageTS)"
 						If($AgentConfig.ManageTS -eq 'True')
 						{
-							WriteWordLine 0 2 "Allow permitted viewers to connect by using Remote Desktop connection: `
-							$($AgentConfig.EnableTS)"
-							WriteWordLine 0 2 "Require network level authentication on computers that run Windows `
-							Vista operating system and later versions: $($AgentConfig.TSUserAuthentication)"
+							WriteWordLine 0 1 "Allow permitted viewers to connect by using Remote Desktop connection: $($AgentConfig.EnableTS)"
+							WriteWordLine 0 1 "Require network level authentication on computers that run Windows Vista operating system and later versions: $($AgentConfig.TSUserAuthentication)"
 						}
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				4
 					{
-						WriteWordLine 0 2 'Computer Agent'
-						WriteWordLine 0 2 "Deployment deadline greater than 24 hours, remind user every (hours): `
-						$([string]($AgentConfig.ReminderInterval) / 60 / 60)"
-						WriteWordLine 0 2 "Deployment deadline less than 24 hours, remind user every (hours): `
-						$([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
-						WriteWordLine 0 2 "Deployment deadline less than 1 hour, remind user every (minutes): `
-						$([string]($AgentConfig.HourReminderInterval) / 60)"
-						WriteWordLine 0 2 "Default application catalog website point: `
-						$($AgentConfig.PortalUrl)"
-						WriteWordLine 0 2 "Add default Application Catalog website to Internet Explorer trusted sites zone: `
-						$($AgentConfig.AddPortalToTrustedSiteList)"
-						WriteWordLine 0 2 "Allow Silverlight applications to run in elevated trust mode: `
-						$($AgentConfig.AllowPortalToHaveElevatedTrust)"
-						WriteWordLine 0 2 "Organization name displayed in Software Center: `
-						$($AgentConfig.BrandingTitle)"
+						WriteWordLine 0 1 'Computer Agent'
+						WriteWordLine 0 1 "Deployment deadline greater than 24 hours, remind user every (hours): $([string]($AgentConfig.ReminderInterval) / 60 / 60)"
+						WriteWordLine 0 1 "Deployment deadline less than 24 hours, remind user every (hours): $([string]($AgentConfig.DayReminderInterval) / 60 / 60)"
+						WriteWordLine 0 1 "Deployment deadline less than 1 hour, remind user every (minutes): $([string]($AgentConfig.HourReminderInterval) / 60)"
+						WriteWordLine 0 1 "Default application catalog website point: $($AgentConfig.PortalUrl)"
+						WriteWordLine 0 1 "Add default Application Catalog website to Internet Explorer trusted sites zone: $($AgentConfig.AddPortalToTrustedSiteList)"
+						WriteWordLine 0 1 "Allow Silverlight applications to run in elevated trust mode: $($AgentConfig.AllowPortalToHaveElevatedTrust)"
+						WriteWordLine 0 1 "Organization name displayed in Software Center: $($AgentConfig.BrandingTitle)"
 						Switch ($AgentConfig.InstallRestriction)
 						{
 							0 { $InstallRestriction = 'All Users' }
@@ -3860,85 +3935,73 @@ ForEach($ClientSetting in $AllClientSettings)
 							3 { $InstallRestriction = 'Only Administrators and primary Users'}
 							4 { $InstallRestriction = 'No users' }
 						}
-						WriteWordLine 0 2 "Install Permissions: $($InstallRestriction)"
+						WriteWordLine 0 1 "Install Permissions: $($InstallRestriction)"
 						Switch ($AgentConfig.SuspendBitLocker)
 						{
 							0 { $SuspendBitlocker = 'Never' }
 							1 { $SuspendBitlocker = 'Always' }
 						}
-						WriteWordLine 0 2 "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
+						WriteWordLine 0 1 "Suspend Bitlocker PIN entry on restart: $($SuspendBitlocker)"
 						Switch ($AgentConfig.EnableThirdPartyOrchestration)
 						{
 							0 { $EnableThirdPartyTool = 'No' }
 							1 { $EnableThirdPartyTool = 'Yes' }
 						}
-						WriteWordLine 0 2 "Additional software manages the deployment of applications `
-						and software updates: $($EnableThirdPartyTool)"
+						WriteWordLine 0 1 "Additional software manages the deployment of applications and software updates: $($EnableThirdPartyTool)"
 						Switch ($AgentConfig.PowerShellExecutionPolicy)
 						{
 							0 { $ExecutionPolicy = 'All signed' }
 							1 { $ExecutionPolicy = 'Bypass' }
 							2 { $ExecutionPolicy = 'Restricted' }
 						}
-						WriteWordLine 0 2 "Powershell execution policy: $($ExecutionPolicy)"
+						WriteWordLine 0 1 "Powershell execution policy: $($ExecutionPolicy)"
 						Switch ($AgentConfig.DisplayNewProgramNotification)
 						{
 							False { $DisplayNotifications = 'No' }
 							True { $DisplayNotifications = 'Yes' }
 						}
-						WriteWordLine 0 2 "Show notifications for new deployments: $($DisplayNotifications)"
+						WriteWordLine 0 1 "Show notifications for new deployments: $($DisplayNotifications)"
 						Switch ($AgentConfig.DisableGlobalRandomization)
 						{
 							False { $DisableGlobalRandomization = 'No' }
 							True { $DisableGlobalRandomization = 'Yes' }
 						}
-						WriteWordLine 0 2 "Disable deadline randomization: $($DisableGlobalRandomization)"
+						WriteWordLine 0 1 "Disable deadline randomization: $($DisableGlobalRandomization)"
 						WriteWordLine 0 0 '---------------------'
 					}
 				5
 					{
-						WriteWordLine 0 2 'Network Access Protection (NAP)'
-						WriteWordLine 0 2 "Enable Network Access Protection on clients: `
-						$($AgentConfig.Enabled)"
-						WriteWordLine 0 2 "Use UTC (Universal Time Coordinated) for evaluation time: `
-						$($AgentConfig.EffectiveTimeinUTC)"
-						WriteWordLine 0 2 "Require a new scan for each evaluation: `
-						$($AgentConfig.ForceScan)"
-						WriteWordLine 0 2 'NAP re-evaluation schedule:' -nonewline
+						WriteWordLine 0 1 'Network Access Protection (NAP)'
+						WriteWordLine 0 1 "Enable Network Access Protection on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 "Use UTC (Universal Time Coordinated) for evaluation time: $($AgentConfig.EffectiveTimeinUTC)"
+						WriteWordLine 0 1 "Require a new scan for each evaluation: $($AgentConfig.ForceScan)"
+						WriteWordLine 0 1 'NAP re-evaluation schedule:' -nonewline
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.ComputeComplianceSchedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) `
-												days effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) `
-												effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -3950,52 +4013,42 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
 						WriteWordLine 0 0 '---------------------'
 					}
 				8
 					{
-						WriteWordLine 0 2 'Software Metering'
-						WriteWordLine 0 2 "Enable software metering on clients: $($AgentConfig.Enabled)"
-						WriteWordLine 0 2 'Schedule data collection: ' -nonewline
+						WriteWordLine 0 1 'Software Metering'
+						WriteWordLine 0 1 "Enable software metering on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 'Schedule data collection: ' -nonewline
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.DataCollectionSchedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) `
-												days effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) `
-												effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -4007,8 +4060,7 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
 						WriteWordLine 0 0 ''
@@ -4016,42 +4068,35 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				9
 					{
-						WriteWordLine 0 2 'Software Updates'
-						WriteWordLine 0 2 "Enable software updates on clients: $($AgentConfig.Enabled)"
-						WriteWordLine 0 2 'Software Update scan schedule: ' -nonewline
+						WriteWordLine 0 1 'Software Updates'
+						WriteWordLine 0 1 "Enable software updates on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 'Software Update scan schedule: ' -nonewline
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.ScanSchedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) `
-												days effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -4063,46 +4108,36 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
-						WriteWordLine 0 2 'Schedule deployment re-evaluation: ' -nonewline
+						WriteWordLine 0 1 'Schedule deployment re-evaluation: ' -nonewline
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) d`
-												ays effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) `
-												effective $($Schedule.StartTime)"
+							WriteWordLine 0 0 " Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -4114,13 +4149,10 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 0 " Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
-						WriteWordLine 0 2 'When any software update deployment deadline is reached, `
-						install all other software update deployments with deadline coming within a specified period of time: ' -nonewline
+						WriteWordLine 0 1 'When any software update deployment deadline is reached, install all other software update deployments with deadline coming within a specified period of time: ' -nonewline
 						If($AgentConfig.AssignmentBatchingTimeout -eq '0')
 						{
 							WriteWordLine 0 0 'No.'
@@ -4128,8 +4160,7 @@ ForEach($ClientSetting in $AllClientSettings)
 						Else 
 						{
 							WriteWordLine 0 0 'Yes.'    
-							WriteWordLine 0 2 'Period of time for which all pending deployments with deadline in this time `
-							will also be installed: ' -nonewline
+							WriteWordLine 0 1 'Period of time for which all pending deployments with deadline in this time will also be installed: ' -nonewline
 							If($AgentConfig.AssignmentBatchingTimeout -le '82800')
 							{
 								$hours = [string]$AgentConfig.AssignmentBatchingTimeout / 60 / 60 
@@ -4147,10 +4178,10 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				10
 					{
-						WriteWordLine 0 2 'User and Device Affinity'
-						WriteWordLine 0 2 "User device affinity usage threshold (minutes): $($AgentConfig.ConsoleMinutes)"
-						WriteWordLine 0 2 "User device affinity usage threshold (days): $($AgentConfig.IntervalDays)"
-						WriteWordLine 0 2 'Automatically configure user device affinity from usage data: ' -nonewline 
+						WriteWordLine 0 1 'User and Device Affinity'
+						WriteWordLine 0 1 "User device affinity usage threshold (minutes): $($AgentConfig.ConsoleMinutes)"
+						WriteWordLine 0 1 "User device affinity usage threshold (days): $($AgentConfig.IntervalDays)"
+						WriteWordLine 0 1 'Automatically configure user device affinity from usage data: ' -nonewline 
 						If($AgentConfig.AutoApproveAffinity -eq '0')
 						{
 							WriteWordLine 0 0 'No'
@@ -4164,26 +4195,20 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				11
 					{
-						WriteWordLine 0 2 'Background Intelligent Transfer'
-						WriteWordLine 0 2 "Limit the maximum network bandwidth for BITS background transfers: `
-						$($AgentConfig.EnableBitsMaxBandwidth)"
-						WriteWordLine 0 2 "Throttling window start time: `
-						$($AgentConfig.MaxBandwidthValidFrom)"
-						WriteWordLine 0 2 "Throttling window end time: `
-						$($AgentConfig.MaxBandwidthValidTo)"
-						WriteWordLine 0 2 "Maximum transfer rate during throttling window (kbps): `
-						$($AgentConfig.MaxTransferRateOnSchedule)"
-						WriteWordLine 0 2 "Allow BITS downloads outside the throttling window: `
-						$($AgentConfig.EnableDownloadOffSchedule)"
-						WriteWordLine 0 2 "Maximum transfer rate outside the throttling window (Kbps): `
-						$($AgentConfig.MaxTransferRateOffSchedule)"
+						WriteWordLine 0 1 'Background Intelligent Transfer'
+						WriteWordLine 0 1 "Limit the maximum network bandwidth for BITS background transfers: $($AgentConfig.EnableBitsMaxBandwidth)"
+						WriteWordLine 0 1 "Throttling window start time: $($AgentConfig.MaxBandwidthValidFrom)"
+						WriteWordLine 0 1 "Throttling window end time: $($AgentConfig.MaxBandwidthValidTo)"
+						WriteWordLine 0 1 "Maximum transfer rate during throttling window (kbps): $($AgentConfig.MaxTransferRateOnSchedule)"
+						WriteWordLine 0 1 "Allow BITS downloads outside the throttling window: $($AgentConfig.EnableDownloadOffSchedule)"
+						WriteWordLine 0 1 "Maximum transfer rate outside the throttling window (Kbps): $($AgentConfig.MaxTransferRateOffSchedule)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				12
 					{
-						WriteWordLine 0 2 'Enrollment'
-						WriteWordLine 0 2 'Allow users to enroll mobile devices and Mac computers: ' -nonewline
+						WriteWordLine 0 1 'Enrollment'
+						WriteWordLine 0 1 'Allow users to enroll mobile devices and Mac computers: ' -nonewline
 						If($AgentConfig.EnableDeviceEnrollment -eq '0')
 						{
 							WriteWordLine 0 0 'No'
@@ -4197,52 +4222,43 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				13
 					{
-						WriteWordLine 0 2 'Client Policy'
-						WriteWordLine 0 2 "Client policy polling interval (minutes): `
-						$($AgentConfig.PolicyRequestAssignmentTimeout)"
-						WriteWordLine 0 2 "Enable user policy on clients: `
-						$($AgentConfig.PolicyEnableUserPolicyPolling)"
-						WriteWordLine 0 2 "Enable user policy requests from Internet clients: `
-						$($AgentConfig.PolicyEnableUserPolicyOnInternet)"
+						WriteWordLine 0 1 'Client Policy'
+						WriteWordLine 0 1 "Client policy polling interval (minutes): $($AgentConfig.PolicyRequestAssignmentTimeout)"
+						WriteWordLine 0 1 "Enable user policy on clients: $($AgentConfig.PolicyEnableUserPolicyPolling)"
+						WriteWordLine 0 1 "Enable user policy requests from Internet clients: $($AgentConfig.PolicyEnableUserPolicyOnInternet)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				15
 					{
-						WriteWordLine 0 2 'Hardware Inventory'
-						WriteWordLine 0 2 "Enable hardware inventory on clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 'Hardware Inventory'
+						WriteWordLine 0 1 "Enable hardware inventory on clients: $($AgentConfig.Enabled)"
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.Schedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.DaySpan) `
-												days effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Hardware inventory schedule: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Hardware inventory schedule: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Hardware inventory schedule: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 2 "Hardware inventory schedule: Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Hardware inventory schedule: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 2 "Hardware inventory schedule: Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Hardware inventory schedule: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 2 "Hardware inventory schedule: Occurs on last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Hardware inventory schedule: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -4254,8 +4270,7 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 2 "Hardware inventory schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-													of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Hardware inventory schedule: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
 						WriteWordLine 0 0 ''
@@ -4263,47 +4278,40 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				16 
 					{
-						WriteWordLine 0 2 'State Messaging'
-						WriteWordLine 0 2 "State message reporting cycle (minutes): $($AgentConfig.BulkSendInterval)"
+						WriteWordLine 0 1 'State Messaging'
+						WriteWordLine 0 1 "State message reporting cycle (minutes): $($AgentConfig.BulkSendInterval)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				17
 					{
-						WriteWordLine 0 2 'Software Deployment'
+						WriteWordLine 0 1 'Software Deployment'
 						$Schedule = Convert-CMSchedule -ScheduleString $AgentConfig.EvaluationSchedule
 						If($Schedule.DaySpan -gt 0)
 						{
-							WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.DaySpan) `
-												days effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs every $($Schedule.DaySpan) days effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.HourSpan -gt 0)
 						{
-							WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.HourSpan) `
-												hours effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs every $($Schedule.HourSpan) hours effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.MinuteSpan -gt 0)
 						{
-							WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.MinuteSpan) `
-												minutes effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs every $($Schedule.MinuteSpan) minutes effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfWeeks)
 						{
-							WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs every $($Schedule.ForNumberOfWeeks) `
-												weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
+							WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs every $($Schedule.ForNumberOfWeeks) weeks on $(Convert-WeekDay $Schedule.Day) effective $($Schedule.StartTime)"
 						}
 						ElseIf($Schedule.ForNumberOfMonths)
 						{
 							If($Schedule.MonthDay -gt 0)
 							{
-								WriteWordLine 0 2 "Schedule re-evaluation for deployments: Occurs on day $($Schedule.MonthDay) `
-													of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs on day $($Schedule.MonthDay) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.MonthDay -eq 0)
 							{
-								WriteWordLine 0 2 "Schedule re-evaluation for deployments: `
-								Occurs on last day of every $($Schedule.ForNumberOfMonths) `
-													months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs on last day of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 							ElseIf($Schedule.WeekOrder -gt 0)
 							{
@@ -4315,9 +4323,7 @@ ForEach($ClientSetting in $AllClientSettings)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 2 "Schedule re-evaluation for deployments: `
-												Occurs the $($order) $(Convert-WeekDay $Schedule.Day) `
-												of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
+								WriteWordLine 0 1 "Schedule re-evaluation for deployments: Occurs the $($order) $(Convert-WeekDay $Schedule.Day) of every $($Schedule.ForNumberOfMonths) months effective $($Schedule.StartTime)"
 							}
 						}
 						WriteWordLine 0 0 ''
@@ -4325,88 +4331,70 @@ ForEach($ClientSetting in $AllClientSettings)
 					}
 				18
 					{
-						WriteWordLine 0 2 'Power Management'
-						WriteWordLine 0 2 "Allow power management of clients: $($AgentConfig.Enabled)"
-						WriteWordLine 0 2 "Allow users to exclude their device from power management: `
-						$($AgentConfig.AllowUserToOptOutFromPowerPlan)"
-						WriteWordLine 0 2 "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
+						WriteWordLine 0 1 'Power Management'
+						WriteWordLine 0 1 "Allow power management of clients: $($AgentConfig.Enabled)"
+						WriteWordLine 0 1 "Allow users to exclude their device from power management: $($AgentConfig.AllowUserToOptOutFromPowerPlan)"
+						WriteWordLine 0 1 "Enable wake-up proxy: $($AgentConfig.EnableWakeupProxy)"
 						If($AgentConfig.EnableWakeupProxy -eq 'True')
 						{
-							WriteWordLine 0 2 "Wake-up proxy port number (UDP): $($AgentConfig.Port)"
-							WriteWordLine 0 2 "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
-							WriteWordLine 0 2 'Windows Firewall exception for wake-up proxy: ' -nonewline
+							WriteWordLine 0 1 "Wake-up proxy port number (UDP): $($AgentConfig.Port)"
+							WriteWordLine 0 1 "Wake On LAN port number (UDP): $($AgentConfig.WolPort)"
+							WriteWordLine 0 1 'Windows Firewall exception for wake-up proxy: ' -nonewline
 							Switch ($AgentConfig.WakeupProxyFirewallFlags)
 							{
-								0 { WriteWordLine 0 2 'disabled' }
-								9 { WriteWordLine 0 2 'Enabled: Public.' }
-								10 { WriteWordLine 0 2 'Enabled: Private.' }
-								11 { WriteWordLine 0 2 'Enabled: Private, Public.' }
-								12 { WriteWordLine 0 2 'Enabled: Domain.' }
-								13 { WriteWordLine 0 2 'Enabled: Domain, Public.' }
-								14 { WriteWordLine 0 2 'Enabled: Domain, Private.' }
-								15 { WriteWordLine 0 2 'Enabled: Domain, Private, Public.' }
+								0 { WriteWordLine 0 1 'disabled' }
+								9 { WriteWordLine 0 1 'Enabled: Public.' }
+								10 { WriteWordLine 0 1 'Enabled: Private.' }
+								11 { WriteWordLine 0 1 'Enabled: Private, Public.' }
+								12 { WriteWordLine 0 1 'Enabled: Domain.' }
+								13 { WriteWordLine 0 1 'Enabled: Domain, Public.' }
+								14 { WriteWordLine 0 1 'Enabled: Domain, Private.' }
+								15 { WriteWordLine 0 1 'Enabled: Domain, Private, Public.' }
 							}
-							WriteWordLine 0 2 "IPv6 prefixes if required for DirectAccess or other intervening network devices. `
-							Use a comma to specifiy multiple entries: $($AgentConfig.WakeupProxyDirectAccessPrefixList)"
+							WriteWordLine 0 1 "IPv6 prefixes if required for DirectAccess or other intervening network devices. Use a comma to specifiy multiple entries: $($AgentConfig.WakeupProxyDirectAccessPrefixList)"
 						}
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				20
 					{
-						WriteWordLine 0 2 'Endpoint Protection'
-						WriteWordLine 0 2 "Manage Endpoint Protection client on client computers: `
-						$($AgentConfig.EnableEP)"
-						WriteWordLine 0 2 "Install Endpoint Protection client on client computers: `
-						$($AgentConfig.InstallSCEPClient)"
-						WriteWordLine 0 2 "Automatically remove previously installed antimalware software before `
-						Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
-						WriteWordLine 0 2 "Allow Endpoint Protection client installation and restarts outside maintenance windows. `
-						Maintenance windows must be at least 30 minutes long for client installation: `
-						$($AgentConfig.OverrideMaintenanceWindow)"
-						WriteWordLine 0 2 "For Windows Embedded devices with write filters, commit Endpoint Protection `
-						client installation (requires restart): $($AgentConfig.PersistInstallation)"
-						WriteWordLine 0 2 "Suppress any required computer restarts after the Endpoint Protection client is `
-						installed: $($AgentConfig.SuppressReboot)"
-						WriteWordLine 0 2 "Allowed period of time users can postpone a required restart to complete the Endpoint `
-						Protection installation (hours): $($AgentConfig.ForceRebootPeriod)"
-						WriteWordLine 0 2 "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server `
-						Update Services, or UNC shares) for the initial definition update on client computers: `
-						$($AgentConfig.DisableFirstSignatureUpdate)"
+						WriteWordLine 0 1 'Endpoint Protection'
+						WriteWordLine 0 1 "Manage Endpoint Protection client on client computers: $($AgentConfig.EnableEP)"
+						WriteWordLine 0 1 "Install Endpoint Protection client on client computers: $($AgentConfig.InstallSCEPClient)"
+						WriteWordLine 0 1 "Automatically remove previously installed antimalware software before Endpoint Protection is installed: $($AgentConfig.Remove3rdParty)"
+						WriteWordLine 0 1 "Allow Endpoint Protection client installation and restarts outside maintenance windows. Maintenance windows must be at least 30 minutes long for client installation: $($AgentConfig.OverrideMaintenanceWindow)"
+						WriteWordLine 0 1 "For Windows Embedded devices with write filters, commit Endpoint Protection client installation (requires restart): $($AgentConfig.PersistInstallation)"
+						WriteWordLine 0 1 "Suppress any required computer restarts after the Endpoint Protection client is installed: $($AgentConfig.SuppressReboot)"
+						WriteWordLine 0 1 "Allowed period of time users can postpone a required restart to complete the Endpoint Protection installation (hours): $($AgentConfig.ForceRebootPeriod)"
+						WriteWordLine 0 1 "Disable alternate sources (such as Microsoft Windows Update, Microsoft Windows Server Update Services, or UNC shares) for the initial definition update on client computers: $($AgentConfig.DisableFirstSignatureUpdate)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				21
 					{
-						WriteWordLine 0 2 'Computer Restart'
-						WriteWordLine 0 2 "Display a temporary notification to the user that indicates the `
-						interval before the user is `
-						logged of or the computer restarts (minutes): `
-						$($AgentConfig.RebootLogoffNotificationCountdownDuration)"
-						WriteWordLine 0 2 "Display a dialog box that the user cannot close, `
-						which displays the countdown interval before `
-						the user is logged of or the computer restarts (minutes): `
-						$([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
+						WriteWordLine 0 1 'Computer Restart'
+						WriteWordLine 0 1 "Display a temporary notification to the user that indicates the interval before the user is logged off or the computer restarts (minutes): $($AgentConfig.RebootLogoffNotificationCountdownDuration)"
+						WriteWordLine 0 1 "Display a dialog box that the user cannot close, which displays the countdown interval before the user is logged of or the computer restarts (minutes): $([string]$AgentConfig.RebootLogoffNotificationFinalWindow / 60)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				22
 					{
-						WriteWordLine 0 2 'Cloud Services'
-						WriteWordLine 0 2 "Allow access to Cloud Distribution Point: $($AgentConfig.AllowCloudDP)"
+						WriteWordLine 0 1 'Cloud Services'
+						WriteWordLine 0 1 "Allow access to Cloud Distribution Point: $($AgentConfig.AllowCloudDP)"
 						WriteWordLine 0 0 ''
 						WriteWordLine 0 0 '---------------------'
 					}
 				23
 					{
-						WriteWordLine 0 2 'Metered Internet Connections'
+						WriteWordLine 0 1 'Metered Internet Connections'
 						Switch ($AgentConfig.MeteredNetworkUsage)
 						{
 							1 { $Usage = 'Allow' }
 							2 { $Usage = 'Limit' }
 							4 { $Usage = 'Block' }
 						}
-						WriteWordLine 0 2 "Specifiy how clients communicate on metered network connections: $($Usage)"
+						WriteWordLine 0 1 "Specifiy how clients communicate on metered network connections: $($Usage)"
 						WriteWordLine 0 0 ''
 					}
 
@@ -4422,9 +4410,9 @@ ForEach($ClientSetting in $AllClientSettings)
 
 #region Security
 
-Write-Verbose "$(Get-Date):   Collecting all administrative users"
+Write-Verbose "$(Get-Date -Format G):   Collecting all administrative users"
 WriteWordLine 2 0 'Administrative Users'
-$Admins = Get-CMAdministrativeUser
+$Admins = Get-CMAdministrativeUser -EA 0 4>$Null
 
 $AdminHashArray = @();
 
@@ -4460,7 +4448,7 @@ $Table = $Null
 #endregion Security
 
 #region enumerating all custom Security roles
-Write-Verbose "$(Get-Date):   enumerating all custom build security roles"
+Write-Verbose "$(Get-Date -Format G):   enumerating all custom build security roles"
 WriteWordLine 2 0 'Custom Security Roles'
 $SecurityRoles = Get-CMSecurityRole | Where-Object -FilterScript {-not $_.IsBuiltIn}
 If(-not [string]::IsNullOrEmpty($SecurityRoles))
@@ -4503,9 +4491,9 @@ Else
 
 #region Used Accounts
 
-Write-Verbose "$(Get-Date):   Enumerating all used accounts"
+Write-Verbose "$(Get-Date -Format G):   Enumerating all used accounts"
 WriteWordLine 2 0 'Configured Accounts'
-$Accounts = Get-CMAccount
+$Accounts = Get-CMAccount -EA 0 4>$Null
 
 $AccountsHashArray = @();
 
@@ -4536,19 +4524,19 @@ $Table = $Null
 ####
 #region Assets and Compliance
 ####
-Write-Verbose "$(Get-Date):   Done with Administration, next Assets and Compliance"
+Write-Verbose "$(Get-Date -Format G):   Done with Administration, next Assets and Compliance"
 WriteWordLine 1 0 'Assets and Compliance'
 
 #region enumerating all User Collections
 WriteWordLine 2 0 'Summary of User Collections'
-$UserCollections = Get-CMUserCollection
+$UserCollections = Get-CMUserCollection -EA 0 4>$Null
 If($ListAllInformation)
 {
 	$UserCollHashArray = @();
 
 	ForEach($UserCollection in $UserCollections)
 	{
-		Write-Verbose "$(Get-Date):   Found User Collection: $($UserCollection.Name)"
+		Write-Verbose "$(Get-Date -Format G):   Found User Collection: $($UserCollection.Name)"
 
 		$UserCollRow = @{'Collection Name' = $UserCollection.Name; `
 		'Collection ID' = $UserCollection.CollectionID; `
@@ -4578,12 +4566,12 @@ Else
 
 #region enumerating all Device Collections
 WriteWordLine 2 0 'Summary of Device Collections'
-$DeviceCollections = Get-CMDeviceCollection
+$DeviceCollections = Get-CMDeviceCollection -EA 0 4>$Null
 If($ListAllInformation)
 {
 	ForEach($DeviceCollection in $DeviceCollections)
 	{
-		Write-Verbose "$(Get-Date):   Found Device Collection: $($DeviceCollection.Name)"
+		Write-Verbose "$(Get-Date -Format G):   Found Device Collection: $($DeviceCollection.Name)"
 		WriteWordLine 0 1 "Collection Name: $($DeviceCollection.Name)" -boldface $true
 		WriteWordLine 0 1 "Collection ID: $($DeviceCollection.CollectionID)"
 		WriteWordLine 0 1 "Total count of members: $($DeviceCollection.MemberCount)"
@@ -4618,9 +4606,7 @@ If($ListAllInformation)
 					{
 						1 
 							{
-								WriteWordLine 0 3 "This maintenance window occurs only once on $($startTime) `
-								and lasts for $($ScheduleString.TokenData.HourDuration) hour(s) `
-								and $($ScheduleString.TokenData.MinuteDuration) minute(s)."
+								WriteWordLine 0 3 "This maintenance window occurs only once on $($startTime) and lasts for $($ScheduleString.TokenData.HourDuration) hour(s) and $($ScheduleString.TokenData.MinuteDuration) minute(s)."
 							}
 						2 
 							{
@@ -4637,10 +4623,7 @@ If($ListAllInformation)
 							}
 						3 
 							{                                              
-								WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofWeeks) `
-								week(s) on $(Convert-WeekDay $ScheduleString.TokenData.Day) `
-								and lasts $($ScheduleString.TokenData.HourDuration) hour(s) `
-								and $($ScheduleString.TokenData.MinuteDuration) minute(s) starting on $($startTime)."
+								WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofWeeks) week(s) on $(Convert-WeekDay $ScheduleString.TokenData.Day) and lasts $($ScheduleString.TokenData.HourDuration) hour(s) and $($ScheduleString.TokenData.MinuteDuration) minute(s) starting on $($startTime)."
 							}
 						4 
 							{
@@ -4652,9 +4635,7 @@ If($ListAllInformation)
 									3 {$order = 'third'}
 									4 {$order = 'fourth'}
 								}
-								WriteWordLine 0 3 "This maintenance window occurs every `
-								$($ScheduleString.TokenData.ForNumberofMonths) month(s) `
-								on every $($order) $(Convert-WeekDay $ScheduleString.TokenData.Day)"
+								WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofMonths) month(s) on every $($order) $(Convert-WeekDay $ScheduleString.TokenData.Day)"
 							}
 						5 
 							{
@@ -4666,10 +4647,8 @@ If($ListAllInformation)
 								{
 									$DayOfMonth = "day $($ScheduleString.TokenData.MonthDay)"
 								}
-								WriteWordLine 0 3 "This maintenance window occurs every `
-								$($ScheduleString.TokenData.ForNumberofMonths) month(s) on $($DayOfMonth)."
-								WriteWordLine 0 3 "It lasts $($ScheduleString.TokenData.HourDuration) `
-								hours and $($ScheduleString.TokenData.MinuteDuration) minutes."
+								WriteWordLine 0 3 "This maintenance window occurs every $($ScheduleString.TokenData.ForNumberofMonths) month(s) on $($DayOfMonth)."
+								WriteWordLine 0 3 "It lasts $($ScheduleString.TokenData.HourDuration) hours and $($ScheduleString.TokenData.MinuteDuration) minutes."
 							}
 					}
 					Switch ($ServiceWindow.IsEnabled)
@@ -4686,7 +4665,7 @@ If($ListAllInformation)
 		}
 		try 
 		{
-			$CollVars = Get-CMDeviceCollectionVariable -CollectionId $DeviceCollection.CollectionID
+			$CollVars = Get-CMDeviceCollectionVariable -CollectionId $DeviceCollection.CollectionID -EA 0 4>$Null
 			If($CollVars) 
 			{
 				$CollVarsHashArray = @();
@@ -4848,7 +4827,7 @@ If($ListAllInformation)
 			WriteWordLine 0 1 'No device collection Include Collection membership rules configured!'
 		}
 		#move to the end of the current document
-		Write-Verbose "$(Get-Date):   move to the end of the current document"
+		Write-Verbose "$(Get-Date -Format G):   move to the end of the current document"
 		$selection.EndKey($wdStory,$wdMove) | Out-Null
 		WriteWordLine 0 0 ''
 	}
@@ -4858,12 +4837,12 @@ Else
 	WriteWordLine 0 1 "There are $($DeviceCollections.count) Device collections."
 }
 
-Write-Verbose "$(Get-Date):   Working on Compliance Settings"
+Write-Verbose "$(Get-Date -Format G):   Working on Compliance Settings"
 WriteWordLine 2 0 'Compliance Settings'
 WriteWordLine 0 0 ''
 WriteWordLine 3 0 'Configuration Items'
 
-$CIs = Get-CMConfigurationItem
+$CIs = Get-CMConfigurationItem -EA 0 4>$Null
 
 $CIsHashArray = @();
 
@@ -4896,7 +4875,7 @@ $Table = $Null
 WriteWordLine 0 0 ''
 
 WriteWordLine 3 0 'Configuration Baselines'
-$CBs = Get-CMBaseline
+$CBs = Get-CMBaseline -EA 0 4>$Null
 
 If($CBs) 
 {
@@ -4938,9 +4917,9 @@ Else
 }
 
 ### User Data and Profiles
-Write-Verbose "$(Get-Date):   Working on User Data and Profiles"
+Write-Verbose "$(Get-Date -Format G):   Working on User Data and Profiles"
 WriteWordLine 3 0 'User Data and Profiles'
-$UserDataProfiles = Get-CMUserDataAndProfileConfigurationItem
+$UserDataProfiles = Get-CMUserDataAndProfileConfigurationItem -EA 0 4>$Null
 
 If(-not [string]::IsNullOrEmpty($UserDataProfiles)) 
 {
@@ -4977,12 +4956,12 @@ Else
 	WriteWordLine 0 1 'There are no User Data and Profile configurations configured.'
 }
 
-Write-Verbose "$(Get-Date):   Working on Endpoint Protection"
+Write-Verbose "$(Get-Date -Format G):   Working on Endpoint Protection"
 WriteWordLine 2 0 'Endpoint Protection'
 If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 {
 	WriteWordLine 3 0 'Antimalware Policies'
-	$AntiMalwarePolicies = Get-CMAntimalwarePolicy
+	$AntiMalwarePolicies = Get-CMAntimalwarePolicy -EA 0 4>$Null
 	If(-not [string]::IsNullOrEmpty($AntiMalwarePolicies))
 	{
 		ForEach($AntiMalwarePolicy in $AntiMalwarePolicies)
@@ -5008,8 +4987,7 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 					WriteWordLine 0 3 "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
 					WriteWordLine 0 3 "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
 					WriteWordLine 0 3 "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
-					WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is `
-					offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
+					WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
 					WriteWordLine 0 3 "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
 				}
 				WriteWordLine 0 0 ''
@@ -5086,22 +5064,15 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 					WriteWordLine 0 4 "$($ExcludedProcess)"
 				}
 				WriteWordLine 0 2 'Advanced' -boldface $true
-				WriteWordLine 0 3 "Create a system restore point before computers are cleaned: `
-				$($AgentConfig.CreateSystemRestorePointBeforeClean)"
+				WriteWordLine 0 3 "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
 				WriteWordLine 0 3 "Disable the client user interface: $($AgentConfig.DisableClientUI)"
-				WriteWordLine 0 3 "Show notifications messages on the client computer when the user `
-				needs to run a full scan, update definitions, or run Windows Defender Offline: `
-				$($AgentConfig.ShowNotificationMessages)"
+				WriteWordLine 0 3 "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
 				WriteWordLine 0 3 "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
-				WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: `
-				$($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
-				WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: `
-				$($AgentConfig.AllowUserAddExcludes)"
-				WriteWordLine 0 3 "Allow all users to view the full History results: `
-				$($AgentConfig.AllowUserViewHistory)"
+				WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
+				WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
+				WriteWordLine 0 3 "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
 				WriteWordLine 0 3 "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
-				WriteWordLine 0 3 "Randomize scheduled scan and definition update start time (within 30 minutes): `
-				$($AgentConfig.RandomizeScheduledScanStartTime)"
+				WriteWordLine 0 3 "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"
 
 				WriteWordLine 0 2 'Threat overrides' -boldface $true
 				If(-not [string]::IsNullOrEmpty($AgentConfig.ThreatName))
@@ -5116,26 +5087,18 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 					1 { WriteWordLine 0 0 'Basic membership' }
 					2 { WriteWordLine 0 0 'Advanced membership' }
 				}
-				WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: `
-				$($AgentConfig.AllowUserChangeSpyNetSettings)"
+				WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"
 
 				WriteWordLine 0 2 'Definition Updates' -boldface $true
-				WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): `
-				(0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
-				WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if `
-				interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
-				WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than `
-				two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
-				WriteWordLine 0 3 'Set sources and order for Endpoint Protection definition updates: '
-				ForEach($Fallback in $AgentConfig.FallbackOrder)
+				WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
+				WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
+				WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
+				WriteWordLine 0 3 'Set sources and order for Endpoint Protection definition updates: ForEach($Fallback in $AgentConfig.FallbackOrder)'
 				{
 					WriteWordLine 0 3 "$($Fallback)"
 				}
-				WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, `
-				clients will only update from alternative sources if definition is older than (hours): `
-				$($AgentConfig.AuGracePeriod / 60)"
-				WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, `
-				specify the UNC paths:' 
+				WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
+				WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, specify the UNC paths:' 
 				ForEach($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources)
 				{
 					WriteWordLine 0 4 "$($UNCShare)"
@@ -5164,16 +5127,11 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 									WriteWordLine 0 3 "Scan type: $($ScheduledScanType)"
 									WriteWordLine 0 3 "Scan day: $(Convert-WeekDay $AgentConfig.ScheduledScanWeekDay)"
 									WriteWordLine 0 3 "Scan time: $(Convert-Time -time $AgentConfig.ScheduledScanTime)"
-									WriteWordLine 0 3 "Run a daily quick scan on client computers: `
-									$($AgentConfig.EnableQuickDailyScan)"
-									WriteWordLine 0 3 "Daily quick scan schedule time: $(Convert-Time -time `
-									$AgentConfig.ScheduledScanQuickTime)"
-									WriteWordLine 0 3 "Check for the latest definition updates before running a scan: `
-									$($AgentConfig.CheckLatestDefinition)"
-									WriteWordLine 0 3 "Start a scheduled scan only when the computer is idle: `
-									$($AgentConfig.ScanWhenClientNotInUse)"
-									WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is `
-									offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
+									WriteWordLine 0 3 "Run a daily quick scan on client computers: $($AgentConfig.EnableQuickDailyScan)"
+									WriteWordLine 0 3 "Daily quick scan schedule time: $(Convert-Time -time $AgentConfig.ScheduledScanQuickTime)"
+									WriteWordLine 0 3 "Check for the latest definition updates before running a scan: $($AgentConfig.CheckLatestDefinition)"
+									WriteWordLine 0 3 "Start a scheduled scan only when the computer is idle: $($AgentConfig.ScanWhenClientNotInUse)"
+									WriteWordLine 0 3 "Force a scan of the selected scan type if client computer is offline during two or more scheduled scans: $($AgentConfig.EnableCatchupScan)"
 									WriteWordLine 0 3 "Limit CPU usage during scans to (%): $($AgentConfig.LimitCPUUsage)"
 								}
 							}
@@ -5236,8 +5194,7 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 							{
 								WriteWordLine 0 2 'Real-time protection' -boldface $true
 								WriteWordLine 0 3 "Enable real-time protection: $($AgentConfig.RealtimeProtectionOn)"
-								WriteWordLine 0 3 "Monitor file and program activity on your computer: `
-								$($AgentConfig.MonitorFileProgramActivity)"
+								WriteWordLine 0 3 "Monitor file and program activity on your computer: $($AgentConfig.MonitorFileProgramActivity)"
 								WriteWordLine 0 3 'Scan system files: ' -nonewline
 								Switch ($AgentConfig.RealtimeScanOption)
 								{
@@ -5249,23 +5206,15 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 						205
 							{
 								WriteWordLine 0 2 'Advanced' -boldface $true
-								WriteWordLine 0 3 "Create a system restore point before computers are cleaned: `
-								$($AgentConfig.CreateSystemRestorePointBeforeClean)"
+								WriteWordLine 0 3 "Create a system restore point before computers are cleaned: $($AgentConfig.CreateSystemRestorePointBeforeClean)"
 								WriteWordLine 0 3 "Disable the client user interface: $($AgentConfig.DisableClientUI)"
-								WriteWordLine 0 3 "Show notifications messages on the client computer when the user `
-								needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
-								WriteWordLine 0 3 "Delete quarantined files after (days): `
-								$($AgentConfig.DeleteQuarantinedFilesPeriod)"
-								WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: `
-								$($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
-								WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: `
-								$($AgentConfig.AllowUserAddExcludes)"
-								WriteWordLine 0 3 "Allow all users to view the full History results: `
-								$($AgentConfig.AllowUserViewHistory)"
-								WriteWordLine 0 3 "Enable reparse point scanning: `
-								$($AgentConfig.EnableReparsePointScanning)"
-								WriteWordLine 0 3 "Randomize scheduled scan and definition update start time `
-								(within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"                                            
+								WriteWordLine 0 3 "Show notifications messages on the client computer when the user needs to run a full scan, update definitions, or run Windows Defender Offline: $($AgentConfig.ShowNotificationMessages)"
+								WriteWordLine 0 3 "Delete quarantined files after (days): $($AgentConfig.DeleteQuarantinedFilesPeriod)"
+								WriteWordLine 0 3 "Allow users to configure the setting for quarantined file deletion: $($AgentConfig.AllowUserConfigQuarantinedFileDeletionPeriod)"
+								WriteWordLine 0 3 "Allow users to exclude file and folders, file types and processes: $($AgentConfig.AllowUserAddExcludes)"
+								WriteWordLine 0 3 "Allow all users to view the full History results: $($AgentConfig.AllowUserViewHistory)"
+								WriteWordLine 0 3 "Enable reparse point scanning: $($AgentConfig.EnableReparsePointScanning)"
+								WriteWordLine 0 3 "Randomize scheduled scan and definition update start time (within 30 minutes): $($AgentConfig.RandomizeScheduledScanStartTime)"                                            
 							}
 						206
 							{
@@ -5281,28 +5230,21 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 									1 { WriteWordLine 0 0 'Basic membership' }
 									2 { WriteWordLine 0 0 'Advanced membership' }
 								}
-								WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: `
-								$($AgentConfig.AllowUserChangeSpyNetSettings)"                                            
+								WriteWordLine 0 3 "Allow users to modify Microsoft Active Protection Service settings: $($AgentConfig.AllowUserChangeSpyNetSettings)"                                            
 							}
 						208
 							{
 								WriteWordLine 0 2 'Definition Updates' -boldface $true
-								WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): `
-								(0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
-								WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if `
-								interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
-								WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than `
-								two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
+								WriteWordLine 0 3 "Check for Endpoint Protection definitions at a specific interval (hours): (0 disable check on interval) $($AgentConfig.SignatureUpdateInterval)"
+								WriteWordLine 0 3 "Check for Endpoint Protection definitions daily at: (Only configurable if interval-based check is disabled) $(Convert-Time -time $AgentConfig.SignatureUpdateTime)"
+								WriteWordLine 0 3 "Force a definition update if the client computer is offline for more than two consecutive scheduled updates: $($AgentConfig.EnableSignatureUpdateCatchupInterval)"
 								WriteWordLine 0 3 'Set sources and order for Endpoint Protection definition updates: '
 								ForEach($Fallback in $AgentConfig.FallbackOrder)
 								{
 									WriteWordLine 0 4 "$($Fallback)"
 								}
-								WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, `
-								clients will only update from alternative sources if definition is older than (hours): `
-								$($AgentConfig.AuGracePeriod / 60)"
-								WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, `
-								specify the UNC paths:' 
+								WriteWordLine 0 3 "If Configuration Manager is used as a source for definition updates, clients will only update from alternative sources if definition is older than (hours): $($AgentConfig.AuGracePeriod / 60)"
+								WriteWordLine 0 3 'If UNC file shares are selected as a definition update source, specify the UNC paths:' 
 								ForEach($UNCShare in $AgentConfig.DefinitionUpdateFileSharesSources)
 								{
 									WriteWordLine 0 4 "$($UNCShare)"
@@ -5312,13 +5254,10 @@ If(-not ($(Get-CMEndpointProtectionPoint) -eq $Null))
 							{
 								WriteWordLine 0 2 'Scan settings' -boldface $true
 								WriteWordLine 0 3 "Scan email and email attachments: $($AgentConfig.ScanEmail)"
-								WriteWordLine 0 3 "Scan removable storage devices such as USB drives: `
-								$($AgentConfig.ScanRemovableStorage)"
-								WriteWordLine 0 3 "Scan network drives when running a full scan: `
-								$($AgentConfig.ScanNetworkDrives)"
+								WriteWordLine 0 3 "Scan removable storage devices such as USB drives: $($AgentConfig.ScanRemovableStorage)"
+								WriteWordLine 0 3 "Scan network drives when running a full scan: $($AgentConfig.ScanNetworkDrives)"
 								WriteWordLine 0 3 "Scan archived files: $($AgentConfig.ScanArchivedFiles)"
-								WriteWordLine 0 3 "Allow users to configure CPU usage during scans: `
-								$($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
+								WriteWordLine 0 3 "Allow users to configure CPU usage during scans: $($AgentConfig.AllowClientUserConfigLimitCPUUsage)"
 								WriteWordLine 0 3 'User control of scheduled scans: ' -nonewline
 								Switch ($AgentConfig.ScheduledScanUserControl)
 								{
@@ -5344,10 +5283,10 @@ Else
 
 WriteWordLine 0 0 ''
 
-Write-Verbose "$(Get-Date):   Working on Windows Firewall Policies"
+Write-Verbose "$(Get-Date -Format G):   Working on Windows Firewall Policies"
 WriteWordLine 3 0 'Windows Firewall Policies'
 
-$FirewallPolicies = Get-CMWindowsFirewallPolicy
+$FirewallPolicies = Get-CMWindowsFirewallPolicy -EA 0 4>$Null
 If(-not [string]::IsNullOrEmpty($FirewallPolicies)) 
 {
 
@@ -5391,13 +5330,13 @@ Else
 #####
 ##### finished with Assets and Compliance, moving on to Software Library
 #####
-Write-Verbose "$(Get-Date):   Finished with Assets and Compliance."
+Write-Verbose "$(Get-Date -Format G):   Finished with Assets and Compliance."
 
 #endregion Assets and Compliance
 
 If($Software)
 {
-	Write-Verbose "$(Get-Date):   moving on to Software Library"
+	Write-Verbose "$(Get-Date -Format G):   moving on to Software Library"
 	WriteWordLine 1 0 'Software Library'
 
 	##### Applications
@@ -5414,11 +5353,11 @@ If($Software)
 			ForEach($App in $Applications) {
 				Write-Verbose 'Getting specific WMI instance for this App'
 				[wmi]$App = $App.__PATH
-				Write-Verbose "$(Get-Date):   Found App: $($App.LocalizedDisplayName)"
+				Write-Verbose "$(Get-Date -Format G):   Found App: $($App.LocalizedDisplayName)"
 				WriteWordLine 0 2 "$($App.LocalizedDisplayName)" -boldface $true
 				WriteWordLine 0 3 "Created by: $($App.CreatedBy)"
 				WriteWordLine 0 3 "Date created: $($App.DateCreated)"
-				$DTs = Get-CMDeploymentType -ApplicationName $App.LocalizedDisplayName
+				$DTs = Get-CMDeploymentType -ApplicationName $App.LocalizedDisplayName -EA 0 4>$Null
 				If(-not [string]::IsNullOrEmpty($DTs)) 
 				{
 					$DTsHashArray = @()
@@ -5472,7 +5411,7 @@ If($Software)
         
 	WriteWordLine 2 0 'Packages'
 	WriteWordLine 0 0 ''
-	$Packages = Get-CMPackage
+	$Packages = Get-CMPackage -EA 0 4>$Null
 	If($ListAllInformation)
 	{
 		If(-not [string]::IsNullOrEmpty($Packages))
@@ -5494,13 +5433,11 @@ If($Software)
 						WriteWordLine 0 4 "Command Line: $($Program.CommandLine)"
 						If($Program.ProgramFlags -band 0x00000001)
 						{
-							WriteWordLine 0 4 "`'Allow this program to be installed from the Install `
-							Package task sequence without being deployed`' enabled."
+							WriteWordLine 0 4 "`'Allow this program to be installed from the Install Package task sequence without being deployed`' enabled."
 						}
 						If($Program.ProgramFlags -band 0x00000002)
 						{
-							WriteWordLine 0 4 "`'The task sequence shows a custom progress user `
-							interface message.`' enabled."
+							WriteWordLine 0 4 "`'The task sequence shows a custom progress user interface message.`' enabled."
 						}
 						If($Program.ProgramFlags -band 0x00000010)
 						{
@@ -5544,8 +5481,7 @@ If($Software)
 						}
 						If($Program.ProgramFlags -band 0x00010000)
 						{
-							WriteWordLine 0 4 'The program must be run by every user for whom it is valid. `
-							Valid only for mandatory jobs.'
+							WriteWordLine 0 4 'The program must be run by every user for whom it is valid. Valid only for mandatory jobs.'
 						}
 						If($Program.ProgramFlags -band 0x00020000)
 						{
@@ -5557,8 +5493,7 @@ If($Software)
 						}
 						If($Program.ProgramFlags -band 0x00080000)
 						{
-							WriteWordLine 0 4 'Configuration Manager restarts the computer when the program `
-							has finished running successfully.'
+							WriteWordLine 0 4 'Configuration Manager restarts the computer when the program has finished running successfully.'
 						}
 						If($Program.ProgramFlags -band 0x00100000)
 						{
@@ -5566,8 +5501,7 @@ If($Software)
 						}
 						If($Program.ProgramFlags -band 0x00200000)
 						{
-							WriteWordLine 0 4 'Persists the connection to the drive specified in the `
-							DriveLetter property. The USEUNCPATH bit flag must not be set.'
+							WriteWordLine 0 4 'Persists the connection to the drive specified in the DriveLetter property. The USEUNCPATH bit flag must not be set.'
 						}
 						If($Program.ProgramFlags -band 0x00400000)
 						{
@@ -5618,7 +5552,7 @@ If($Software)
 
     WriteWordLine 2 0 'Driver Packages'
     WriteWordLine 0 0 ''
-    $DriverPackages = Get-CMDriverPackage
+    $DriverPackages = Get-CMDriverPackage -EA 0 4>$Null
 	If($ListAllInformation)
 	{
 		If(-not [string]::IsNullOrEmpty($DriverPackages))
@@ -5635,7 +5569,7 @@ If($Software)
 				WriteWordLine 0 2 "PackageID: $($DriverPackage.PackageID)"
 				WriteWordLine 0 2 "Source path: $($DriverPackage.PkgSourcePath)"
 				WriteWordLine 0 2 'This package consists of the following Drivers:'
-				$Drivers = Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)"
+				$Drivers = Get-CMDriver -DriverPackageId "$($DriverPackage.PackageID)" -EA 0 4>$Null
 				ForEach($Driver in $Drivers)
 				{
 					WriteWordLine 0 0 ''
@@ -5667,7 +5601,7 @@ If($Software)
 
     WriteWordLine 2 0 'Operating System Installers'
     WriteWordLine 0 0 ''
-    $OSInstallers = Get-CMOperatingSystemInstaller
+    $OSInstallers = Get-CMOperatingSystemInstaller -EA 0 4>$Null
 	If(-not [string]::IsNullOrEmpty($OSInstallers))
 	{
 		WriteWordLine 0 1 'The following OS Installers are imported into this environment:'
@@ -5693,7 +5627,7 @@ If($Software)
 		
 	WriteWordLine 2 0 'Boot Images'
 	WriteWordLine 0 0 ''
-	$BootImages = Get-CMBootImage
+	$BootImages = Get-CMBootImage -EA 0 4>$Null
 	If(-not [string]::IsNullOrEmpty($BootImages))
 	{
 		WriteWordLine 0 1 'The following Boot Images are imported into this environment:'
@@ -5728,7 +5662,7 @@ If($Software)
 				$ImportedDriverIDs = ($BootImage.ReferencedDrivers).ID | Out-Null
 				ForEach($ImportedDriverID in $ImportedDriverIDs)
 				{
-					$ImportedDriver = Get-CMDriver -ID $ImportedDriverID
+					$ImportedDriver = Get-CMDriver -ID $ImportedDriverID -EA 0 4>$Null
 					WriteWordLine 0 3 "Name: $($ImportedDriver.LocalizedDisplayName)" -boldface $true
 					WriteWordLine 0 3 "Inf File: $($ImportedDriver.DriverINFFile)"
 					WriteWordLine 0 3 "Driver Class: $($ImportedDriver.DriverClass)"
@@ -5764,12 +5698,12 @@ If($Software)
 	####
 	####
 	#### Task Sequences
-	Write-Verbose "$(Get-Date):   Enumerating Task Sequences"
+	Write-Verbose "$(Get-Date -Format G):   Enumerating Task Sequences"
 	WriteWordLine 2 0 'Task Sequences'
 	WriteWordLine 0 0 ''
 
-	$TaskSequences = Get-CMTaskSequence
-	Write-Verbose "$(Get-Date):   working on $($TaskSequences.count) Task Sequences"
+	$TaskSequences = Get-CMTaskSequence -EA 0 4>$Null
+	Write-Verbose "$(Get-Date -Format G):   working on $($TaskSequences.count) Task Sequences"
 	If($ListAllInformation)
 	{
 		If(-not [string]::IsNullOrEmpty($TaskSequences))
@@ -5780,8 +5714,7 @@ If($Software)
 				WriteWordLine 0 1 "Package ID: $($TaskSequence.PackageID)"
 				If($TaskSequence.BootImageID)
 				{
-					WriteWordLine 0 2 "Boot Image referenced in this Task Sequence: `
-					$((Get-CMBootImage -Id $TaskSequence.BootImageID -ErrorAction SilentlyContinue ).Name)"
+					WriteWordLine 0 2 "Boot Image referenced in this Task Sequence: $((Get-CMBootImage -Id $TaskSequence.BootImageID -ErrorAction SilentlyContinue ).Name)"
 				}
 
 				$Sequence = $Null
@@ -5885,16 +5818,16 @@ If($Software)
 Function ProcessScriptEnd
 {
 	#http://poshtips.com/measuring-elapsed-time-in-powershell/
-	Write-Verbose "$(Get-Date): Script started: $($Script:StartTime)"
-	Write-Verbose "$(Get-Date): Script ended: $(Get-Date)"
-	$runtime = $(Get-Date) - $Script:StartTime
+	Write-Verbose "$(Get-Date -Format G): Script started: $($Script:ScriptStartTime)"
+	Write-Verbose "$(Get-Date -Format G): Script ended: $(Get-Date)"
+	$runtime = $(Get-Date) - $Script:ScriptStartTime
 	$Str = [string]::format("{0} days, {1} hours, {2} minutes, {3}.{4} seconds",
 		$runtime.Days,
 		$runtime.Hours,
 		$runtime.Minutes,
 		$runtime.Seconds,
 		$runtime.Milliseconds)
-	Write-Verbose "$(Get-Date): Elapsed time: $($Str)"
+	Write-Verbose "$(Get-Date -Format G): Elapsed time: $($Str)"
 
 	If($Dev)
 	{
@@ -5912,55 +5845,56 @@ Function ProcessScriptEnd
 	{
 		$SIFile = "$($Script:pwdpath)\ConfigMgrScriptInfo_$(Get-Date -f yyyy-MM-dd_HHmm).txt"
 		Out-File -FilePath $SIFile -InputObject "" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Add DateTime       : $($AddDateTime)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Add DateTime       : $AddDateTime" 4>$Null
 		If($MSWORD -or $PDF)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "Company Address: $CompanyAddress" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Company Email  : $CompanyEmail" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Company Fax    : $CompanyFax" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Company Name   : $Script:CoName" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Company Phone  : $CompanyPhone" 4>$Null		
-			Out-File -FilePath $SIFile -Append -InputObject "Cover Page     : $CoverPage" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "Company Address    : $CompanyAddress" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Email      : $CompanyEmail" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Fax        : $CompanyFax" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Name       : $Script:CoName" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Company Phone      : $CompanyPhone" 4>$Null		
+			Out-File -FilePath $SIFile -Append -InputObject "Cover Page         : $CoverPage" 4>$Null
 		}
-		Out-File -FilePath $SIFile -Append -InputObject "Dev                : $($Dev)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Dev                : $Dev" 4>$Null
 		If($Dev)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "DevErrorFile       : $($Script:DevErrorFile)" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "DevErrorFile       : $Script:DevErrorFile" 4>$Null
 		}
-		Out-File -FilePath $SIFile -Append -InputObject "Filename1          : $($Script:FileName1)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Filename1          : $Script:FileName1" 4>$Null
 		If($PDF)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "Filename2          : $($Script:FileName2)" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "Filename2          : $Script:FileName2" 4>$Null
 		}
-		Out-File -FilePath $SIFile -Append -InputObject "Folder             : $($Folder)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "From               : $($From)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "ListAllInforamtion : $($ListAllInformation)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Log                : $($Log)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Save As PDF        : $($PDF)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Save As WORD       : $($MSWORD)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Script Info        : $($ScriptInfo)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Smtp Port          : $($SmtpPort)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Smtp Server        : $($SmtpServer)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Software           : $($Software)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "To                 : $($To)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Use SSL            : $($UseSSL)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Folder             : $Folder" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "From               : $From" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "ListAllInforamtion : $ListAllInformation" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Log                : $Log" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Report Footer      : $ReportFooter" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Save As PDF        : $PDF" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Save As WORD       : $MSWORD" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Script Info        : $ScriptInfo" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Smtp Port          : $SmtpPort" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Smtp Server        : $SmtpServer" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Software           : $Software" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "To                 : $To" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Use SSL            : $UseSSL" 4>$Null
 		If($MSWORD -or $PDF)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "User Name          : $($UserName)" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "User Name          : $UserName" 4>$Null
 		}
 		Out-File -FilePath $SIFile -Append -InputObject "" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "OS Detected        : $($RunningOS)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "OS Detected        : $RunningOS" 4>$Null
 		Out-File -FilePath $SIFile -Append -InputObject "PoSH version       : $($Host.Version)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "PSUICulture        : $($PSUICulture)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "PSCulture          : $($PSCulture)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "PSUICulture        : $PSUICulture" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "PSCulture          : $PSCulture" 4>$Null
 		If($MSWORD -or $PDF)
 		{
-			Out-File -FilePath $SIFile -Append -InputObject "Word version       : $($Script:WordProduct)" 4>$Null
-			Out-File -FilePath $SIFile -Append -InputObject "Word language      : $($Script:WordLanguageValue)" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "Word version       : $Script:WordProduct" 4>$Null
+			Out-File -FilePath $SIFile -Append -InputObject "Word language      : $Script:WordLanguageValue" 4>$Null
 		}
 		Out-File -FilePath $SIFile -Append -InputObject "" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Script start       : $($Script:StartTime)" 4>$Null
-		Out-File -FilePath $SIFile -Append -InputObject "Elapsed time       : $($Str)" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Script start       : $Script:ScriptStartTime" 4>$Null
+		Out-File -FilePath $SIFile -Append -InputObject "Elapsed time       : $Str" 4>$Null
 	}
 	
 	#stop transcript logging
@@ -5971,11 +5905,11 @@ Function ProcessScriptEnd
 			try 
 			{
 				Stop-Transcript | Out-Null
-				Write-Verbose "$(Get-Date): $Script:LogPath is ready for use"
+				Write-Verbose "$(Get-Date -Format G): $Script:LogPath is ready for use"
 			} 
 			catch 
 			{
-				Write-Verbose "$(Get-Date): Transcript/log stop failed"
+				Write-Verbose "$(Get-Date -Format G): Transcript/log stop failed"
 			}
 		}
 	}
@@ -5990,7 +5924,7 @@ Set-Location -Path $LocationBeforeExecution
 $Script:ScriptInformation = $Null
 
 #region finish script
-Write-Verbose "$(Get-Date): Finishing up document"
+Write-Verbose "$(Get-Date -Format G): Finishing up document"
 #end of document processing
 
 ###Change the two lines below for your script###
@@ -5998,6 +5932,11 @@ $AbstractTitle = "Configuration Manager Report"
 $SubjectTitle = "System Center Configuration Manager Report"
 
 UpdateDocumentProperties $AbstractTitle $SubjectTitle
+
+If($ReportFooter)
+{
+	OutputReportFooter
+}
 
 ProcessDocumentOutput
 
