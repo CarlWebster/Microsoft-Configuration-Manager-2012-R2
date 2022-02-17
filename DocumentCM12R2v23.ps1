@@ -9,7 +9,7 @@
 .DESCRIPTION
 	Creates a report of Configuration Manager using Microsoft Word, PDF, and PowerShell.
 	Creates a document named InventoryScript.docx (or .PDF).
-	Word and PDF documents include a Cover Page, Table of Contents and Footer.
+	Word and PDF documents include a Cover Page, Table of Contents, and Footer.
 	Includes support for the following language versions of Microsoft Word:
 		Catalan
 		Chinese
@@ -283,6 +283,19 @@
 	Administrator for the User Name.
 	Output file will be saved in the path \\FileServer\ShareName
 .EXAMPLE
+	PS C:\PSScript >.\DocumentCM12R2v23.ps1 -Dev -ScriptInfo -Log
+	
+	Creates the default report.
+	
+	Creates a text file named ConfigMgrInventoryScriptErrors_yyyyMMddTHHmmssffff.txt that 
+	contains up to the last 250 errors reported by the script.
+	
+	Creates a text file named ConfigMgrInventoryScriptInfo_yyyy-MM-dd_HHmm.txt that 
+	contains all the script parameters and other basic information.
+	
+	Creates a text file for transcript logging named 
+	ConfigMgrDocScriptTranscript_yyyyMMddTHHmmssffff.txt.
+.EXAMPLE
 	PS C:\PSScript > .\DocumentCM12R2v23.ps1 
 	-SmtpServer mail.domain.tld
 	-From XDAdmin@domain.tld 
@@ -293,7 +306,7 @@
 
 	The script will use the default SMTP port 25 and will not use SSL.
 
-	If the current user's credentials are not valid to send email, 
+	If the current user's credentials are not valid to send an email, 
 	the user will be prompted to enter valid credentials.
 .EXAMPLE
 	PS C:\PSScript > .\DocumentCM12R2v23.ps1 
@@ -351,7 +364,7 @@
 	The script will use the email server smtp.office365.com on port 587 using SSL, 
 	sending from webster@carlwebster.com, sending to ITGroup@carlwebster.com.
 
-	If the current user's credentials are not valid to send email, 
+	If the current user's credentials are not valid to send an email, 
 	the user will be prompted to enter valid credentials.
 .EXAMPLE
 	PS C:\PSScript > .\DocumentCM12R2v23.ps1 
@@ -369,7 +382,7 @@
 	The script will use the email server smtp.gmail.com on port 587 using SSL, 
 	sending from webster@gmail.com, sending to ITGroup@carlwebster.com.
 
-	If the current user's credentials are not valid to send email, 
+	If the current user's credentials are not valid to send an email, 
 	the user will be prompted to enter valid credentials.
 .INPUTS
 	None.  You cannot pipe objects to this script.
@@ -378,9 +391,9 @@
 	This script creates a Word or PDF document.
 .NOTES
 	NAME: DocumentCM12R2v2.ps1
-	VERSION: 2.39
+	VERSION: 2.40
 	AUTHOR: David O'Brien and Carl Webster
-	LASTEDIT: September 11, 2021
+	LASTEDIT: February 17, 2022
 #>
 
 #endregion
@@ -492,6 +505,23 @@ Param(
 #@carlwebster on Twitter
 #http://www.CarlWebster.com
 
+#Version 2.40 17-Feb-2022
+#	Changed the date format for the transcript and error log files from yyyy-MM-dd_HHmm format to the FileDateTime format
+#		The format is yyyyMMddTHHmmssffff (case-sensitive, using a 4-digit year, 2-digit month, 2-digit day, 
+#		the letter T as a time separator, 2-digit hour, 2-digit minute, 2-digit second, and 4-digit millisecond). 
+#		For example: 20221225T0840107271.
+#	Fixed the German Table of Contents (Thanks to Rene Bigler)
+#		From 
+#			'de-'	{ 'Automatische Tabelle 2'; Break }
+#		To
+#			'de-'	{ 'Automatisches Verzeichnis 2'; Break }
+#	In Function AbortScript, add test for the winword process and terminate it if it is running
+#		Added stopping the transcript log if the log was enabled and started
+#	In Functions AbortScript and SaveandCloseDocumentandShutdownWord, add code from Guy Leech to test for the "Id" property before using it
+#	Replaced most script Exit calls with AbortScript to stop the transcript log if the log was enabled and started
+#	Updated the help text
+#	Updated the ReadMe file
+#
 #Version 2.39 11-Sep-2021
 #	Add Function OutputReportFooter
 #	Add Parameter ReportFooter
@@ -583,6 +613,59 @@ Param(
 #
 #endregion
 
+
+Function AbortScript
+{
+	If($MSWord -or $PDF)
+	{
+		Write-Verbose "$(Get-Date -Format G): System Cleanup"
+		If(Test-Path variable:global:word)
+		{
+			$Script:Word.quit()
+			[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
+			Remove-Variable -Name word -Scope Global 4>$Null
+		}
+	}
+	[gc]::collect() 
+	[gc]::WaitForPendingFinalizers()
+
+	If($MSWord -or $PDF)
+	{
+		#is the winword Process still running? kill it
+
+		#find out our session (usually "1" except on TS/RDC or Citrix)
+		$SessionID = (Get-Process -PID $PID).SessionId
+
+		#Find out if winword running in our session
+		$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}) | Select-Object -Property Id 
+		If( $wordprocess -and $wordprocess.Id -gt 0)
+		{
+			Write-Verbose "$(Get-Date -Format G): WinWord Process is still running. Attempting to stop WinWord Process # $($wordprocess.Id)"
+			Stop-Process $wordprocess.Id -EA 0
+		}
+	}
+	
+	Write-Verbose "$(Get-Date -Format G): Script has been aborted"
+	#stop transcript logging
+	If($Log -eq $True) 
+	{
+		If($Script:StartLog -eq $True) 
+		{
+			try 
+			{
+				Stop-Transcript | Out-Null
+				Write-Verbose "$(Get-Date -Format G): $Script:LogPath is ready for use"
+			} 
+			catch 
+			{
+				Write-Verbose "$(Get-Date -Format G): Transcript/log stop failed"
+			}
+		}
+	}
+	$ErrorActionPreference = $SaveEAPreference
+	Exit
+}
+
 #region initial variable testing and setup
 Set-StrictMode -Version Latest
 
@@ -590,9 +673,9 @@ Set-StrictMode -Version Latest
 $PSDefaultParameterValues = @{"*:Verbose"=$True}
 $SaveEAPreference         = $ErrorActionPreference
 $ErrorActionPreference    = 'SilentlyContinue'
-$script:MyVersion         = '2.39'
+$script:MyVersion         = '2.40'
 $Script:ScriptName        = "DocumentCM12R2v23.ps1"
-$tmpdate                  = [datetime] "09/11/2021"
+$tmpdate                  = [datetime] "02/17/2022"
 $Script:ReleaseDate       = $tmpdate.ToUniversalTime().ToShortDateString()
 
 If($Null -eq $MSWord)
@@ -688,13 +771,13 @@ If($Script:pwdpath.EndsWith("\"))
 If($Dev)
 {
 	$Error.Clear()
-	$Script:DevErrorFile = "$($Script:pwdpath)\ConfigMgrInventoryScriptErrors_$(Get-Date -f yyyy-MM-dd_HHmm).txt"
+	$Script:DevErrorFile = "$($Script:pwdpath)\ConfigMgrInventoryScriptErrors_$(Get-Date -f FileDateTime).txt"
 }
 
 If($Log) 
 {
 	#start transcript logging
-	$Script:LogPath = "$($Script:pwdpath)\ConfigMgrInventoryScriptTranscript_$(Get-Date -f yyyy-MM-dd_HHmm).txt"
+	$Script:LogPath = "$($Script:pwdpath)\ConfigMgrInventoryScriptTranscript_$(Get-Date -f FileDateTime).txt"
 	
 	try 
 	{
@@ -877,7 +960,8 @@ Function SetWordHashTable
 		{
 			'ca-'	{ 'Taula automática 2'; Break }
 			'da-'	{ 'Automatisk tabel 2'; Break }
-			'de-'	{ 'Automatische Tabelle 2'; Break }
+			#'de-'	{ 'Automatische Tabelle 2'; Break }
+			'de-'	{ 'Automatisches Verzeichnis 2'; Break } #changed 17-feb-2022 rene bigler
 			'en-'	{ 'Automatic Table 2'; Break }
 			'es-'	{ 'Tabla automática 2'; Break }
 			'fi-'	{ 'Automaattinen taulukko 2'; Break }
@@ -2514,37 +2598,6 @@ Function SaveandCloseDocumentandShutdownWord
 	Write-Verbose "$(Get-Date -Format G): Closing Word"
 	$Script:Doc.Close()
 	$Script:Word.Quit()
-	If($PDF)
-	{
-		[int]$cnt = 0
-		While(Test-Path $Script:FileName1)
-		{
-			$cnt++
-			If($cnt -gt 1)
-			{
-				Write-Verbose "$(Get-Date -Format G): Waiting another 10 seconds to allow Word to fully close (try # $($cnt))"
-				Start-Sleep -Seconds 10
-				$Script:Word.Quit()
-				If($cnt -gt 2)
-				{
-					#kill the winword process
-
-					#find out our session (usually "1" except on TS/RDC or Citrix)
-					$SessionID = (Get-Process -PID $PID).SessionId
-					
-					#Find out if winword is running in our session
-					$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
-					If($wordprocess -gt 0)
-					{
-						Write-Verbose "$(Get-Date -Format G): Attempting to stop WinWord process # $($wordprocess)"
-						Stop-Process $wordprocess -EA 0
-					}
-				}
-			}
-			Write-Verbose "$(Get-Date -Format G): Attempting to delete $($Script:FileName1) since only $($Script:FileName2) is needed (try # $($cnt))"
-			Remove-Item $Script:FileName1 -EA 0 4>$Null
-		}
-	}
 	Write-Verbose "$(Get-Date -Format G): System Cleanup"
 	[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
 	If(Test-Path variable:global:word)
@@ -2555,18 +2608,17 @@ Function SaveandCloseDocumentandShutdownWord
 	[gc]::collect() 
 	[gc]::WaitForPendingFinalizers()
 	
-	#is the winword process still running? kill it
+	#is the winword Process still running? kill it
 
 	#find out our session (usually "1" except on TS/RDC or Citrix)
 	$SessionID = (Get-Process -PID $PID).SessionId
 
-	#Find out if winword is running in our session
-	$wordprocess = $Null
-	$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}).Id
-	If($null -ne $wordprocess -and $wordprocess -gt 0)
+	#Find out if winword running in our session
+	$wordprocess = ((Get-Process 'WinWord' -ea 0) | Where-Object {$_.SessionId -eq $SessionID}) | Select-Object -Property Id 
+	If( $wordprocess -and $wordprocess.Id -gt 0)
 	{
-		Write-Verbose "$(Get-Date -Format G): WinWord process is still running. Attempting to stop WinWord process # $($wordprocess)"
-		Stop-Process $wordprocess -EA 0
+		Write-Verbose "$(Get-Date -Format G): WinWord Process is still running. Attempting to stop WinWord Process # $($wordprocess.Id)"
+		Stop-Process $wordprocess.Id -EA 0
 	}
 }
 
@@ -2694,25 +2746,6 @@ Function ProcessDocumentOutput
 		}
 		SendEmail $emailAttachment
 	}
-}
-
-Function AbortScript
-{
-	If($MSWord -or $PDF)
-	{
-		$Script:Word.quit()
-		Write-Verbose "$(Get-Date -Format G): System Cleanup"
-		[System.Runtime.Interopservices.Marshal]::ReleaseComObject($Script:Word) | Out-Null
-		If(Test-Path variable:global:word)
-		{
-			Remove-Variable -Name word -Scope Global
-		}
-	}
-	[gc]::collect() 
-	[gc]::WaitForPendingFinalizers()
-	Write-Verbose "$(Get-Date -Format G): Script has been aborted"
-	$ErrorActionPreference = $SaveEAPreference
-	Exit
 }
 #endregion
 
