@@ -723,7 +723,7 @@ Else
 		Write-Verbose "$(Get-Date -Format G): PDF is $PDF"
 	}
 	Write-Error "Unable to determine output parameter.  Script cannot continue"
-	Exit
+	AbortScript
 }
 
 If($Folder -ne "")
@@ -742,14 +742,14 @@ If($Folder -ne "")
 		{
 			#it exists but it is a file not a folder
 			Write-Error "Folder $Folder is a file, not a folder.  Script cannot continue"
-			Exit
+			AbortScript
 		}
 	}
 	Else
 	{
 		#does not exist
 		Write-Error "Folder $Folder does not exist.  Script cannot continue"
-		Exit
+		AbortScript
 	}
 }
 
@@ -800,7 +800,7 @@ If(![String]::IsNullOrEmpty($SmtpServer) -and [String]::IsNullOrEmpty($From) -an
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 If(![String]::IsNullOrEmpty($SmtpServer) -and [String]::IsNullOrEmpty($From) -and ![String]::IsNullOrEmpty($To))
 {
@@ -810,7 +810,7 @@ If(![String]::IsNullOrEmpty($SmtpServer) -and [String]::IsNullOrEmpty($From) -an
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 If(![String]::IsNullOrEmpty($SmtpServer) -and [String]::IsNullOrEmpty($To) -and ![String]::IsNullOrEmpty($From))
 {
@@ -820,7 +820,7 @@ If(![String]::IsNullOrEmpty($SmtpServer) -and [String]::IsNullOrEmpty($To) -and 
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 If(![String]::IsNullOrEmpty($From) -and ![String]::IsNullOrEmpty($To) -and [String]::IsNullOrEmpty($SmtpServer))
 {
@@ -830,7 +830,7 @@ If(![String]::IsNullOrEmpty($From) -and ![String]::IsNullOrEmpty($To) -and [Stri
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 If(![String]::IsNullOrEmpty($From) -and [String]::IsNullOrEmpty($SmtpServer))
 {
@@ -840,7 +840,7 @@ If(![String]::IsNullOrEmpty($From) -and [String]::IsNullOrEmpty($SmtpServer))
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 If(![String]::IsNullOrEmpty($To) -and [String]::IsNullOrEmpty($SmtpServer))
 {
@@ -850,7 +850,7 @@ If(![String]::IsNullOrEmpty($To) -and [String]::IsNullOrEmpty($SmtpServer))
 	`n`n
 	`tScript cannot continue.
 	`n`n"
-	Exit
+	AbortScript
 }
 
 #endregion
@@ -1317,12 +1317,12 @@ Function CheckWordPrereq
 		If(($MSWord -eq $False) -and ($PDF -eq $True))
 		{
 			Write-Host "`n`n`t`tThis script uses Microsoft Word's SaveAs PDF function, please install Microsoft Word`n`n"
-			Exit
+			AbortScript
 		}
 		Else
 		{
 			Write-Host "`n`n`t`tThis script directly outputs to Microsoft Word, please install Microsoft Word`n`n"
-			Exit
+			AbortScript
 		}
 	}
 
@@ -1335,7 +1335,7 @@ Function CheckWordPrereq
 	{
 		$ErrorActionPreference = $SaveEAPreference
 		Write-Host "`n`n`tPlease close all instances of Microsoft Word before running this report.`n`n"
-		Exit
+		AbortScript
 	}
 }
 
@@ -1432,7 +1432,7 @@ Function SetupWord
 		Script cannot continue.
 		`n`n
 		"
-		Exit
+		AbortScript
 	}
 
 	Write-Verbose "$(Get-Date -Format G): Determine Word language value"
@@ -1503,7 +1503,7 @@ Function SetupWord
 		Script cannot continue.
 		`n`n
 		"
-		Exit
+		AbortScript
 	}
 	Else
 	{
@@ -3099,7 +3099,7 @@ If ($? -and $Null -ne $SiteCode)
 		Script will now abort.
 		`n`n
 		"
-		exit 1
+		AbortScript
 	}
 }
 Else
@@ -3115,7 +3115,7 @@ Else
 	`n`n
 	"
 	$error
-	exit 1
+	AbortScript
 }
 
 #### Administration
@@ -3134,7 +3134,7 @@ If($? -and $Null -ne $CMSites)
 	$StandAlonePrimarySite  = $CMSites | Where-Object {$_.Type -eq 2}
 	$SecondarySites         = $CMSites | Where-Object {$_.Type -eq 1}
 }
-ELse
+Else
 {
 	Write-Error "
 	`n`n
@@ -3145,7 +3145,7 @@ ELse
 	Script will now abort.
 	`n`n
 	"
-	exit 1
+	AbortScript
 }
 
 #region CAS
