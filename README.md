@@ -1,2 +1,2 @@
-# ConfiguratonManager2012R2
+# ConfigurationManager2012R2
 Documents Configuration Manager using Microsoft Word, PDF.
